@@ -2,9 +2,6 @@ name: E2E Tests
 
 on:
   push:
-    branches:
-      - "master"
-      - 'release-**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -143,40 +140,35 @@ jobs:
         run: |
           yarn run test-cypress-run \
           --env grepTags=@OSS,grepOmitFiltered=true \
-          --spec './e2e/test/scenarios/**/*.cy.spec.js' \
-          --browser 'replay-chromium'
+          --spec './e2e/test/scenarios/**/*.cy.spec.js'
 
       - name: Run slow and resource-intensive Cypress tests
         if: matrix.name == 'slow' && github.event_name != 'schedule'
         run: |
           yarn run test-cypress-run \
           --env grepTags="@slow",grepOmitFiltered=true \
-          --spec './e2e/test/scenarios/**/*.cy.spec.js' \
-          --browser 'replay-chromium'
+          --spec './e2e/test/scenarios/**/*.cy.spec.js'
 
       - name: Run Flaky Cypress tests
         if: matrix.name == 'flaky' && github.event_name != 'schedule'
         run: |
           yarn run test-cypress-run \
           --env grepTags="@flaky",grepOmitFiltered=true \
-          --spec './e2e/test/scenarios/**/*.cy.spec.js' \
-          --browser 'replay-chromium'
+          --spec './e2e/test/scenarios/**/*.cy.spec.js'
 
       - name: Run EE Cypress tests on ${{ matrix.name }}
         if: matrix.context == 'folder' && github.event_name != 'schedule'
         run: |
           yarn run test-cypress-run \
           --env grepTags="-@slow+-@mongo+-@flaky --@quarantine",grepOmitFiltered=true \
-          --folder ${{ matrix.name }} \
-          --browser 'replay-chromium'
+          --folder ${{ matrix.name }}
 
       - name: Run E2E tests that depend on Mongo
         if: matrix.name == 'mongo'
         run: |
           yarn run test-cypress-run \
           --env grepTags="@mongo --@quarantine",grepOmitFiltered=true \
-          --spec './e2e/test/scenarios/**/*.cy.spec.js' \
-          --browser 'replay-chromium'
+          --spec './e2e/test/scenarios/**/*.cy.spec.js'
         env:
           CYPRESS_QA_DB_MONGO: true
 
