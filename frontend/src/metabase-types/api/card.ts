@@ -105,6 +105,17 @@ export type TableColumnOrderSetting = {
 
 export type StackType = "stacked" | "normalized" | null;
 
+export type XAxisScale =
+  | "ordinal"
+  | "timeseries"
+  | "linear"
+  | "histogram"
+  // for scatter plot
+  | "log"
+  | "pow";
+
+export type YAxisScale = "linear" | "pow" | "log";
+
 export type VisualizationSettings = {
   "graph.show_values"?: boolean;
   "stackable.stack_type"?: StackType;
@@ -114,14 +125,7 @@ export type VisualizationSettings = {
 
   // X-axis
   "graph.x_axis.title_text"?: string;
-  "graph.x_axis.scale"?:
-    | "ordinal"
-    | "timeseries"
-    | "linear"
-    | "histogram"
-    // for scatter plot
-    | "log"
-    | "pow";
+  "graph.x_axis.scale"?: XAxisScale;
   "graph.x_axis.axis_enabled"?:
     | true
     | false
@@ -131,8 +135,11 @@ export type VisualizationSettings = {
 
   // Y-axis
   "graph.y_axis.title_text"?: string;
-  "graph.y_axis.scale"?: "linear" | "pow" | "log";
+  "graph.y_axis.scale"?: YAxisScale;
   "graph.y_axis.axis_enabled"?: true;
+
+  "graph.y_axis.min"?: number;
+  "graph.y_axis.max"?: number;
 
   // Goal
   "graph.goal_value"?: number;
