@@ -631,7 +631,7 @@
       [:img {:style (style/style {:display :block :width :100%})
              :src   (:image-src image-bundle)}]]}))
 
-(s/defmethod render :funnel :- formatter/RenderedPulseCard
+(s/defmethod render :funnel_normal :- formatter/RenderedPulseCard
   [_ render-type _timezone-id card _dashcard {:keys [rows cols viz-settings] :as data}]
   (let [[x-axis-rowfn
          y-axis-rowfn] (formatter/graphing-column-row-fns card data)
@@ -655,6 +655,13 @@
      [:div
       [:img {:style (style/style {:display :block :width :100%})
              :src   (:image-src image-bundle)}]]}))
+
+(s/defmethod render :funnel :- formatter/RenderedPulseCard
+  [context render-type timezone-id card dashcard data]
+  (let [viz-settings (get-in card [:visualization_settings])]
+    (if (= (get viz-settings :funnel.type) "bar")
+      (render :isomorphic render-type timezone-id card dashcard data)
+      (render :funnel_normal render-type timezone-id card dashcard data))))
 
 (s/defmethod render :empty :- formatter/RenderedPulseCard
   [_ render-type _ _ _ _]
