@@ -32,6 +32,7 @@ export interface State {
   settings: SettingsState;
   setup: SetupState;
   upload: FileUploadState;
+  modal: string;
 }
 
 export type Dispatch<T = any> = (action: T) => void;

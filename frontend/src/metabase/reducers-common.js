@@ -9,6 +9,7 @@ import { settings } from "metabase/redux/settings";
 import undo from "metabase/redux/undo";
 import upload from "metabase/redux/uploads";
 import { currentUser } from "metabase/redux/user";
+import { modal } from "metabase/redux/ui";
 
 export default {
   // global reducers
@@ -22,4 +23,5 @@ export default {
   entities,
   upload,
   auth,
+  modal,
 };

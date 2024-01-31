@@ -28,6 +28,7 @@ import type { AppErrorDescriptor, State } from "metabase-types/store";
 
 import { AppContainer, AppContent, AppContentContainer } from "./App.styled";
 import ErrorBoundary from "./ErrorBoundary";
+import { NewModals } from "./new/components/NewModals";
 
 const getErrorComponent = ({ status, data, context }: AppErrorDescriptor) => {
   if (status === 403 || data?.error_code === "unauthorized") {
@@ -108,6 +109,7 @@ function App({
             </AppContent>
             <UndoListing />
             <StatusListing />
+            <NewModals />
           </AppContentContainer>
         </AppContainer>
       </ScrollToTop>
