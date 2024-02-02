@@ -345,11 +345,11 @@
              intervals                        (optimize-intervals intervals)]
          (when (and (mbql.u/is-clause? #{:absolute-datetime :relative-datetime} non-interval)
                     (= (count intervals) 1))
-               (let [interval (first intervals)
-                     interval (case tag
-                                :+ interval
-                                :- (let [[_interval n unit] interval]
-                                     [:interval (- n) unit]))]
+           (let [interval (first intervals)
+                 interval (case tag
+                            :+ interval
+                            :- (let [[_interval n unit] interval]
+                                 [:interval (- n) unit]))]
              (add-interval-if-possible non-interval interval)))))
      expr)))
 
