@@ -121,11 +121,24 @@
          (merge
            {:name                       column-name
             :database-type              (.getString rs "TYPE_NAME")
+            :table-schema               (.getString rs "TABLE_SCHEM")
+            :table-name                 (.getString rs "TABLE_NAME")
             :database-is-auto-increment auto-increment?
             :database-required          required?}
            (when-let [remarks (.getString rs "REMARKS")]
              (when-not (str/blank? remarks)
                {:field-comment remarks})))))))
+
+(defn ^:private simple-fields-metadata
+  [driver ^Connection conn _database]
+  {:pre [(instance? Connection conn)]}
+  (reify clojure.lang.IReduceInit
+    (reduce [_ rf init]
+      (let [jdbc-metadata (jdbc-fields-metadata driver conn nil nil nil)]
+        (reduce
+         (cat rf)
+         init
+         [jdbc-metadata])))))
 
 (defn ^:private fields-metadata
   [driver ^Connection conn {schema :schema, table-name :name} ^String db-name-or-nil]
@@ -165,16 +178,15 @@
          init
          [jdbc-metadata fallback-metadata])))))
 
-(defn describe-table-fields-xf
-  "Returns a transducer for computing metadata about the fields in `table`."
-  [driver table]
+(defn describe-fields-xf
+  "Returns a transducer for computing metadata about the fields in `db`."
+  [driver db]
   (map-indexed (fn [i {:keys [database-type], column-name :name, :as col}]
                  (let [base-type      (database-type->base-type-or-warn driver database-type)
                        semantic-type  (calculated-semantic-type driver column-name database-type)
-                       db             (table/database table)
                        json?          (isa? base-type :type/JSON)]
                    (merge
-                    (u/select-non-nil-keys col [:name :database-type :field-comment :database-required :database-is-auto-increment])
+                    (u/select-non-nil-keys col [:table-schema :table-name :name :database-type :field-comment :database-required :database-is-auto-increment])
                     {:base-type         base-type
                      :database-position i
                      ;; json-unfolding is true by default for JSON fields, but this can be overridden at the DB level
@@ -195,8 +207,23 @@
   [driver conn table db-name-or-nil]
   (into
    #{}
-   (describe-table-fields-xf driver table)
+   (describe-fields-xf driver (table/database table))
    (fields-metadata driver conn table db-name-or-nil)))
+
+(defmulti describe-fields
+  "Returns a reducible collection of column metadata for `table` using JDBC Connection `conn`.
+  Excludes primary key information."
+  {:added    "0.50.0"
+   :arglists '([driver database conn])}
+  driver/dispatch-on-initialized-driver
+  :hierarchy #'driver/hierarchy)
+
+(defmethod describe-fields :sql-jdbc
+  [driver db conn]
+  (into
+   #{}
+   (describe-fields-xf driver db)
+   (simple-fields-metadata driver conn db)))
 
 (defmulti get-table-pks
   "Returns a vector of primary keys for `table` using a JDBC DatabaseMetaData from JDBC Connection `conn`.

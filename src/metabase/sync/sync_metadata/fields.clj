@@ -39,6 +39,10 @@
   * In general the methods in these namespaces return the number of rows updated; these numbers are summed and used
     for logging purposes by higher-level sync logic."
   (:require
+   [medley.core :as m]
+   [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
+   [metabase.driver.sql-jdbc.sync.describe-table :as sql-jdbc.describe-table]
+   [metabase.driver.util :as driver.u]
    [metabase.models.table :as table]
    [metabase.sync.interface :as i]
    [metabase.sync.sync-metadata.fields.fetch-metadata :as fetch-metadata]
@@ -63,6 +67,27 @@
      ;; `sync-instances`
      (sync-metadata/update-metadata! table db-metadata (fetch-metadata/our-metadata table))))
 
+(mu/defn ^:private sync-and-update-tables! :- ms/IntGreaterThanOrEqualToZero
+  "Sync Field instances (i.e., rows in the Field table in the Metabase application DB) for a Table, and update metadata
+  properties (e.g. base type and comment/remark) as needed. Returns number of Fields synced."
+  [tables         :- [:sequential i/TableInstance]
+   field-metadata :- [:sequential i/TableMetadataField]]
+  (let [ident->table (m/index-by (fn [t] (select-keys t [:schema :name])) tables)
+        ident->field-metadata (group-by (fn [x]
+                                          ;; TODO: check these match
+                                          {:schema (:table-schema x)
+                                           :name   (:table-name x)})
+                                        field-metadata)]
+    (reduce + 0
+            (for [[ident db-metadata] ident->field-metadata
+                  :let [table (ident->table ident)]
+                  :when table]
+              (+ (sync-instances/sync-instances! table (set db-metadata) (fetch-metadata/our-metadata table))
+                  ;; Now that tables are synced and fields created as needed make sure field properties are in sync.
+                  ;; Re-fetch our metadata because there might be somethings that have changed after calling
+                  ;; `sync-instances`
+                 (sync-metadata/update-metadata! table (set db-metadata) (fetch-metadata/our-metadata table)))))))
+
 (mu/defn sync-fields-for-table!
   "Sync the Fields in the Metabase application database for a specific `table`."
   ([table :- i/TableInstance]
@@ -75,8 +100,23 @@
        {:total-fields   (count db-metadata)
         :updated-fields (sync-and-update! table db-metadata)}))))
 
+(mu/defn sync-fields-for-tables!
+  "Sync the Fields in the Metabase application database for a specific `table`."
+  [database  :- i/DatabaseInstance
+   tables    :- [:sequential i/TableInstance]]
+  (sync-util/with-error-handling (format "Error syncing Fields for Database ''%s''" (sync-util/name-for-logging database))
+    (let [db-metadata
+          (sql-jdbc.execute/do-with-connection-with-options
+           (driver.u/database->driver database)
+           database
+           nil
+           (fn [conn]
+             (sql-jdbc.describe-table/describe-fields (driver.u/database->driver database) database conn)))] ;; change this to call sql-jdbc field metadata as a temporary workaround
+      {:total-fields   (count db-metadata) ;; this is misleading because total-fields includes pg_catalog fields etc
+       :updated-fields (sync-and-update-tables! tables (seq db-metadata))})))
 
-(mu/defn sync-fields! :- [:maybe
+;; TODO: this is the old way. We'll need to keep it around for drivers that don't support the new way
+#_(mu/defn sync-fields! :- [:maybe
                           [:map
                            [:updated-fields ms/IntGreaterThanOrEqualToZero]
                            [:total-fields   ms/IntGreaterThanOrEqualToZero]]]
@@ -87,3 +127,13 @@
        (map (partial sync-fields-for-table! database))
        (remove (partial instance? Throwable))
        (apply merge-with +)))
+
+(mu/defn sync-fields! :- [:maybe
+                          [:map
+                           [:updated-fields ms/IntGreaterThanOrEqualToZero]
+                           [:total-fields   ms/IntGreaterThanOrEqualToZero]]]
+  "Sync the Fields in the Metabase application database for all the Tables in a `database`."
+  [database :- i/DatabaseInstance]
+  (->> database
+       sync-util/db->sync-tables
+       (sync-fields-for-tables! database)))

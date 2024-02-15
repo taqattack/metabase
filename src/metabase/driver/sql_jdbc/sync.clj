@@ -29,6 +29,7 @@
   add-table-pks
   describe-table
   describe-table-fields
+  describe-fields
   describe-table-fks
   describe-table-indexes
   get-catalogs

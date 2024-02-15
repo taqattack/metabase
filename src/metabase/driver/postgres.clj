@@ -868,8 +868,9 @@
           "   select schemaname, tablename as objectname from pg_catalog.pg_tables"
           "   union"
           "   select schemaname, viewname as objectname from pg_catalog.pg_views"
-          "   union"
-          "   select schemaname, matviewname as objectname from pg_catalog.pg_matviews"
+          ;; FIXME: I was hitting a pg_matviews does not exist error syncing redshift????!!
+          ;; "   union"
+          ;; "   select schemaname, matviewname as objectname from pg_catalog.pg_matviews"
           " ) t"
           " where t.schemaname !~ '^pg_'"
           "   and t.schemaname <> 'information_schema'"

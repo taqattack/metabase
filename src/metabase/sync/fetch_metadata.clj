@@ -20,6 +20,11 @@
    table    :- i/TableInstance]
   (driver/describe-table (driver.u/database->driver database) database table))
 
+(mu/defn database-fields-metadata :- [:sequential i/TableMetadata] ;; TODO: update this to return a reducible
+  "Get more detailed information about a `table` belonging to `database`. Includes information about the Fields."
+  [database :- i/DatabaseInstance]
+  (driver/describe-fields (driver.u/database->driver database) database))
+
 (mu/defn fk-metadata :- i/FKMetadata
   "Get information about the foreign keys belonging to `table`."
   [database :- i/DatabaseInstance
