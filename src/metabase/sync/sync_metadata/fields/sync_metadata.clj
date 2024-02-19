@@ -161,7 +161,7 @@
   "Make sure things like PK status and base-type are in sync with what has come back from the DB. Recursively updates
   nested Fields. Returns total number of Fields updated."
   [table        :- i/TableInstance
-   db-metadata  :- [:set i/TableMetadataField]
+   db-metadata  :- (ms/CollectionOf i/TableMetadataField)
    our-metadata :- [:set common/TableMetadataFieldWithID]]
   (sync-util/sum-for [metabase-field our-metadata]
     ;; only update metadata for 'existing' Fields that are present in our Metadata (i.e., present in the application

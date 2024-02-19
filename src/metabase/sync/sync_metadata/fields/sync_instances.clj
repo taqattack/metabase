@@ -118,7 +118,7 @@
   are returned as part of the `db-metadata`). Creates or reactivates Fields as needed. Returns number of Fields
   synced and updated `our-metadata` including the new Fields and their IDs."
   [table        :- i/TableInstance
-   db-metadata  :- [:set i/TableMetadataField]
+   db-metadata  :- (ms/CollectionOf i/TableMetadataField)
    our-metadata :- [:set common/TableMetadataFieldWithID]
    parent-id    :- common/ParentID]
   (let [known-fields (m/index-by common/canonical-name our-metadata)
@@ -159,7 +159,7 @@
   Fields are ones that are in `our-metadata`, but not in `db-metadata`. Does *NOT* recurse over nested Fields.
   Returns `1` if a Field was marked inactive."
   [table        :- i/TableInstance
-   db-metadata  :- [:set i/TableMetadataField]
+   db-metadata  :- (ms/CollectionOf i/TableMetadataField)
    our-metadata :- [:set common/TableMetadataFieldWithID]]
   ;; retire all the Fields not present in `db-metadata`, and count how many rows were actually affected
   (sync-util/sum-for [metabase-field our-metadata
@@ -196,8 +196,8 @@
   `db-metadata` and `our-metadata`.
   Not for the flattened nested fields for JSON columns in normal RDBMSes (nested field columns)"
   [table        :- i/TableInstance
-   db-metadata  :- [:set i/TableMetadataField]
-   our-metadata :- [:set common/TableMetadataFieldWithID]]
+   db-metadata  :- (ms/CollectionOf i/TableMetadataField)
+   our-metadata :- (ms/CollectionOf common/TableMetadataFieldWithID)]
   (let [name->field-metadata (m/index-by common/canonical-name db-metadata)
         name->metabase-field (m/index-by common/canonical-name our-metadata)
         all-field-names      (set (concat (keys name->field-metadata)
@@ -211,12 +211,12 @@
   "Sync rows in the Field table with `db-metadata` describing the current schema of the Table currently being synced,
   creating Field objects or marking them active/inactive as needed."
   ([table        :- i/TableInstance
-    db-metadata  :- [:set i/TableMetadataField]
+    db-metadata  :- (ms/CollectionOf i/TableMetadataField)
     our-metadata :- [:set common/TableMetadataFieldWithID]]
    (sync-instances! table db-metadata our-metadata nil))
 
   ([table        :- i/TableInstance
-    db-metadata  :- [:set i/TableMetadataField]
+    db-metadata  :- (ms/CollectionOf i/TableMetadataField)
     our-metadata :- [:set common/TableMetadataFieldWithID]
     parent-id    :- common/ParentID]
    ;; syncing the active instances makes important changes to `our-metadata` that need to be passed to recursive

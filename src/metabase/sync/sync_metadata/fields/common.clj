@@ -62,7 +62,7 @@
   "Find Metadata that matches `field-metadata` from a set of `other-metadata`, if any exists. Useful for finding the
   corresponding Metabase Field for field metadata from the DB, or vice versa. Will prefer exact matches."
   [field-metadata :- TableMetadataFieldWithOptionalID
-   other-metadata :- [:set TableMetadataFieldWithOptionalID]]
+   other-metadata :- (ms/CollectionOf TableMetadataFieldWithOptionalID)]
   (let [matches (keep
                   (fn [other-field-metadata]
                     (when (= (canonical-name field-metadata)

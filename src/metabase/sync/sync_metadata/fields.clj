@@ -61,7 +61,7 @@
    "Sync Field instances (i.e., rows in the Field table in the Metabase application DB) for a Table, and update metadata
   properties (e.g. base type and comment/remark) as needed. Returns number of Fields synced."
    [table       :- i/TableInstance
-    db-metadata :- [:set i/TableMetadataField]]
+    db-metadata :- (ms/CollectionOf i/TableMetadataField)]
    (+ (sync-instances/sync-instances! table db-metadata (fetch-metadata/our-metadata table))
      ;; Now that tables are synced and fields created as needed make sure field properties are in sync.
      ;; Re-fetch our metadata because there might be somethings that have changed after calling
@@ -77,8 +77,8 @@
      (reduce + 0
              (for [table-metadata field-metadata
                    :let [metadata->ident (juxt :table-schema :table-name)
-                         table (ident->table (metadata->ident table-metadata))]
-                   :when table]
+                         table (ident->table (metadata->ident (first table-metadata)))]
+                   :when table] ;; TODO: what if a table has no columns?
                (+ (sync-instances/sync-instances! table table-metadata (fetch-metadata/our-metadata table))
                   ;; Now that tables are synced and fields created as needed make sure field properties are in sync.
                   ;; Re-fetch our metadata because there might be somethings that have changed after calling
