@@ -553,7 +553,10 @@
     :native-requires-specified-collection
 
     ;; Does the driver support column(s) support storing index info
-    :index-info})
+    :index-info
+
+    ;; Does the driver support faster syncs by using a faster method of fetching field metadata?
+    :fast-sync-fields})
 
 
 (defmulti supports?

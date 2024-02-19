@@ -129,17 +129,6 @@
              (when-not (str/blank? remarks)
                {:field-comment remarks})))))))
 
-(defn ^:private simple-fields-metadata
-  [driver ^Connection conn _database]
-  {:pre [(instance? Connection conn)]}
-  (reify clojure.lang.IReduceInit
-    (reduce [_ rf init]
-      (let [jdbc-metadata (jdbc-fields-metadata driver conn nil nil nil)]
-        (reduce
-         (cat rf)
-         init
-         [jdbc-metadata])))))
-
 (defn ^:private fields-metadata
   [driver ^Connection conn {schema :schema, table-name :name} ^String db-name-or-nil]
   {:pre [(instance? Connection conn) (string? table-name)]}
@@ -186,7 +175,13 @@
                        semantic-type  (calculated-semantic-type driver column-name database-type)
                        json?          (isa? base-type :type/JSON)]
                    (merge
-                    (u/select-non-nil-keys col [:table-schema :table-name :name :database-type :field-comment :database-required :database-is-auto-increment])
+                    (u/select-non-nil-keys col [:table-schema
+                                                :table-name
+                                                :name
+                                                :database-type
+                                                :field-comment
+                                                :database-required
+                                                :database-is-auto-increment])
                     {:base-type         base-type
                      :database-position i
                      ;; json-unfolding is true by default for JSON fields, but this can be overridden at the DB level
@@ -214,16 +209,70 @@
   "Returns a reducible collection of column metadata for `table` using JDBC Connection `conn`.
   Excludes primary key information."
   {:added    "0.50.0"
-   :arglists '([driver database conn])}
+   :arglists '([driver ^Connection conn database])}
   driver/dispatch-on-initialized-driver
   :hierarchy #'driver/hierarchy)
 
+(def ^:private postgres-fields-metadata-query "
+SELECT
+    c.column_name AS name,
+    c.data_type AS \"database-type\",
+    c.table_schema AS \"table-schema\",
+    c.table_name AS \"table-name\",
+    COALESCE(c.column_default LIKE 'nextval(%' OR c.is_identity = 'YES', FALSE) AS \"database-is-auto-increment\",
+    COALESCE(is_nullable = 'NO' AND column_default IS NULL AND is_identity = 'NO' AND is_generated = 'NEVER', FALSE) AS \"database-required\",
+    pk.column_name IS NOT NULL AS \"pk?\",
+    col_description(fc.oid, c.ordinal_position::int) AS \"field-comment\"
+FROM
+    information_schema.columns c
+JOIN
+    pg_catalog.pg_class fc ON c.table_name = fc.relname
+JOIN
+    pg_catalog.pg_namespace n ON n.oid = fc.relnamespace AND c.table_schema = n.nspname
+LEFT JOIN (
+    SELECT
+        tc.table_schema,
+        tc.table_name,
+        kc.column_name
+    FROM
+        information_schema.table_constraints AS tc
+    JOIN
+        information_schema.key_column_usage AS kc
+    ON
+        tc.constraint_name = kc.constraint_name
+        AND tc.table_schema = kc.table_schema
+        AND tc.table_name = kc.table_name
+    WHERE
+        tc.constraint_type = 'PRIMARY KEY'
+) pk ON c.table_schema = pk.table_schema AND c.table_name = pk.table_name AND c.column_name = pk.column_name
+WHERE
+    fc.relkind = 'r' AND -- limits to tables
+    n.nspname NOT IN ('pg_catalog', 'information_schema') -- exclude system tables
+ORDER BY
+    c.table_schema,
+    c.table_name,
+    c.ordinal_position
+")
+
+;; TODO: this works only for postgres atm, it should be a multimethod implementation
+(defn- postgres-fields-metadata
+  "Returns a reducible collection of column metadata including primary keys"
+  [_driver ^Connection conn]
+  {:pre [(instance? Connection conn)]}
+  (reify clojure.lang.IReduceInit
+    (reduce [_ rf init]
+      (with-open [stmt (.createStatement conn)]
+        (with-open [^ResultSet rs (.executeQuery stmt postgres-fields-metadata-query)]
+          (reduce
+           ((take-while some?) rf)
+           init
+           (jdbc/reducible-result-set rs {})))))))
+
 (defmethod describe-fields :sql-jdbc
-  [driver db conn]
-  (into
-   #{}
-   (describe-fields-xf driver db)
-   (simple-fields-metadata driver conn db)))
+  [driver conn db]
+  (into #{}
+        (describe-fields-xf driver db)
+        (postgres-fields-metadata driver conn)))
 
 (defmulti get-table-pks
   "Returns a vector of primary keys for `table` using a JDBC DatabaseMetaData from JDBC Connection `conn`.
