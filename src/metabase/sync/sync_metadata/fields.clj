@@ -124,7 +124,9 @@
    "Sync the Fields in the Metabase application database for all the Tables in a `database`."
    [database :- i/DatabaseInstance]
    (let [tables (sync-util/db->sync-tables database)]
-     (if (driver/database-supports? :fast-sync-fields database)
+     (if (driver/database-supports? (driver.u/database->driver database)
+                                    :fast-sync-fields
+                                    database)
        (sync-fields-for-tables! database tables)
        (->> tables
             (map (partial sync-fields-for-table! database))
