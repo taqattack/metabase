@@ -72,22 +72,18 @@
    "Sync Field instances (i.e., rows in the Field table in the Metabase application DB) for a Table, and update metadata
   properties (e.g. base type and comment/remark) as needed. Returns number of Fields synced."
    [tables         :- [:sequential i/TableInstance]
-    field-metadata :- [:sequential i/TableMetadataField]]
-   (let [ident->table (m/index-by (fn [t] (select-keys t [:schema :name])) tables)
-         ;; TODO: replace this with partition-by
-         ident->field-metadata (group-by (fn [x]
-                                           {:schema (:table-schema x)
-                                            :name   (:table-name x)})
-                                         field-metadata)]
+    field-metadata :- [:sequential [:sequential i/TableMetadataField]]]
+   (let [ident->table (m/index-by (juxt :schema :name) tables)]
      (reduce + 0
-             (for [[ident db-metadata] ident->field-metadata
-                   :let [table (ident->table ident)]
+             (for [table-metadata field-metadata
+                   :let [metadata->ident (juxt :table-schema :table-name)
+                         table (ident->table (metadata->ident table-metadata))]
                    :when table]
-               (+ (sync-instances/sync-instances! table (set db-metadata) (fetch-metadata/our-metadata table))
+               (+ (sync-instances/sync-instances! table table-metadata (fetch-metadata/our-metadata table))
                   ;; Now that tables are synced and fields created as needed make sure field properties are in sync.
                   ;; Re-fetch our metadata because there might be somethings that have changed after calling
                   ;; `sync-instances`
-                  (sync-metadata/update-metadata! table (set db-metadata) (fetch-metadata/our-metadata table)))))))
+                  (sync-metadata/update-metadata! table table-metadata (fetch-metadata/our-metadata table)))))))
 
  (mu/defn sync-fields-for-table!
    "Sync the Fields in the Metabase application database for a specific `table`."
@@ -115,7 +111,7 @@
              ;; TODO: replace this with multimethod call
               (sql-jdbc.describe-table/describe-fields (driver.u/database->driver database) conn database)))]
        {:total-fields   (count db-metadata) ;; this is misleading because total-fields includes pg_catalog fields etc
-        :updated-fields (sync-and-update-tables! tables (seq db-metadata))})))
+        :updated-fields (sync-and-update-tables! tables db-metadata)})))
 
  (mu/defn sync-fields! :- [:maybe
                            [:map

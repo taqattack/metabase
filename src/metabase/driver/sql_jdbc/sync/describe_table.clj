@@ -206,8 +206,8 @@
    (fields-metadata driver conn table db-name-or-nil)))
 
 (defmulti describe-fields
-  "Returns a reducible collection of column metadata for `table` using JDBC Connection `conn`.
-  Excludes primary key information."
+  "Returns a reducible collection of field metadata for `table` using JDBC Connection `conn`.
+  The metadata is partitioned by the table's schema and name."
   {:added    "0.50.0"
    :arglists '([driver ^Connection conn database])}
   driver/dispatch-on-initialized-driver
@@ -316,7 +316,9 @@ ORDER BY
 (defmethod describe-fields :sql-jdbc
   [driver conn db]
   (into []
-        (describe-fields-xf driver db)
+        (comp
+         (describe-fields-xf driver db)
+         (partition-by (juxt :table-schema :table-name)))
         (postgres-fields-metadata driver conn)))
 
 (defmulti get-table-pks
