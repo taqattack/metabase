@@ -315,7 +315,7 @@ ORDER BY
 
 (defmethod describe-fields :sql-jdbc
   [driver conn db]
-  (into #{}
+  (into []
         (describe-fields-xf driver db)
         (postgres-fields-metadata driver conn)))
 
