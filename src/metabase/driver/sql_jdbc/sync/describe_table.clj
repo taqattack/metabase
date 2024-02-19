@@ -213,6 +213,45 @@
   driver/dispatch-on-initialized-driver
   :hierarchy #'driver/hierarchy)
 
+(def ^:private redshift-fields-metadata-query "
+SELECT
+    c.column_name AS name,
+    c.data_type AS \"database-type\",
+    c.table_schema AS \"table-schema\",
+    c.table_name AS \"table-name\",
+    null AS \"database-is-auto-increment\",
+    null AS \"database-required\",
+    pk.column_name IS NOT NULL AS \"pk?\",
+    null AS \"field-comment\"
+    -- COALESCE(c.column_default LIKE 'nextval(%' OR c.is_identity = 'YES', FALSE) AS \"database-is-auto-increment\",
+    -- COALESCE(is_nullable = 'NO' AND column_default IS NULL AND is_identity = 'NO' AND is_generated = 'NEVER', FALSE) AS \"database-required\",
+    -- col_description(fc.oid, c.ordinal_position::int) AS \"field-comment\"
+FROM
+    information_schema.columns c
+LEFT JOIN (
+    SELECT
+        tc.table_schema,
+        tc.table_name,
+        kc.column_name
+    FROM
+        information_schema.table_constraints AS tc
+    JOIN
+        information_schema.key_column_usage AS kc
+    ON
+        tc.constraint_name = kc.constraint_name
+        AND tc.table_schema = kc.table_schema
+        AND tc.table_name = kc.table_name
+    WHERE
+        tc.constraint_type = 'PRIMARY KEY'
+) pk ON c.table_schema = pk.table_schema AND c.table_name = pk.table_name AND c.column_name = pk.column_name
+WHERE
+    c.table_schema NOT IN ('pg_catalog', 'information_schema')
+ORDER BY
+    c.table_schema,
+    c.table_name,
+    c.ordinal_position
+")
+
 (def ^:private postgres-fields-metadata-query "
 SELECT
     c.column_name AS name,
@@ -254,15 +293,21 @@ ORDER BY
     c.ordinal_position
 ")
 
+;; TODO: multimethod this
+(defn- fields-metadata-query [driver]
+  (case driver
+    :redshift redshift-fields-metadata-query
+    :postgres postgres-fields-metadata-query))
+
 ;; TODO: this works only for postgres atm, it should be a multimethod implementation
 (defn- postgres-fields-metadata
   "Returns a reducible collection of column metadata including primary keys"
-  [_driver ^Connection conn]
+  [driver ^Connection conn]
   {:pre [(instance? Connection conn)]}
   (reify clojure.lang.IReduceInit
     (reduce [_ rf init]
       (with-open [stmt (.createStatement conn)]
-        (with-open [^ResultSet rs (.executeQuery stmt postgres-fields-metadata-query)]
+        (with-open [^ResultSet rs (.executeQuery stmt (fields-metadata-query driver))]
           (reduce
            ((take-while some?) rf)
            init
