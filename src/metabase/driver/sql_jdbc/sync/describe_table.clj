@@ -222,7 +222,8 @@
 (def ^:private redshift-fields-metadata-query "
 SELECT
     c.column_name AS name,
-    c.data_type AS \"database-type\",
+    c.data_type AS \"database-type\", -- TODO: this might not be the correct type name
+    c.ordinal_position AS \"database-position\",
     c.table_schema AS \"table-schema\",
     c.table_name AS \"table-name\",
     null AS \"database-is-auto-increment\",
@@ -263,6 +264,7 @@ ORDER BY
 SELECT
     c.column_name AS name,
     t.typname AS \"database-type\",
+    c.ordinal_position AS \"database-position\",
     c.table_schema AS \"table-schema\",
     c.table_name AS \"table-name\",
     COALESCE(c.column_default LIKE 'nextval(%' OR c.is_identity = 'YES', FALSE) AS \"database-is-auto-increment\",
