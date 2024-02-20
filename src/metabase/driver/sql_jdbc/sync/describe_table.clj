@@ -170,27 +170,34 @@
 (defn describe-fields-xf
   "Returns a transducer for computing metadata about the fields in `db`."
   [driver db]
-  (map-indexed (fn [i {:keys [database-type], column-name :name, :as col}]
-                 (let [base-type      (database-type->base-type-or-warn driver database-type)
-                       semantic-type  (calculated-semantic-type driver column-name database-type)
-                       json?          (isa? base-type :type/JSON)]
-                   (merge
-                    (u/select-non-nil-keys col [:table-schema
-                                                :pk?
-                                                :table-name
-                                                :name
-                                                :database-type
-                                                :field-comment
-                                                :database-required
-                                                :database-is-auto-increment])
-                    {:base-type         base-type
-                     :database-position i
-                     ;; json-unfolding is true by default for JSON fields, but this can be overridden at the DB level
-                     :json-unfolding    json?}
-                    (when semantic-type
-                      {:semantic-type semantic-type})
-                    (when (and json? (driver/database-supports? driver :nested-field-columns db))
-                      {:visibility-type :details-only}))))))
+  (map (fn [col]
+         (let [base-type      (database-type->base-type-or-warn driver (:database-type col))
+               semantic-type  (calculated-semantic-type driver (:name col) (:database-type col))
+               json?          (isa? base-type :type/JSON)]
+           (merge
+            (u/select-non-nil-keys col [:table-schema
+                                        :pk?
+                                        :table-name
+                                        :name
+                                        :database-type
+                                        :database-position
+                                        :field-comment
+                                        :database-required
+                                        :database-is-auto-increment])
+            {:base-type         base-type
+             ;; json-unfolding is true by default for JSON fields, but this can be overridden at the DB level
+             :json-unfolding    json?}
+            (when semantic-type
+              {:semantic-type semantic-type})
+            (when (and json? (driver/database-supports? driver :nested-field-columns db))
+              {:visibility-type :details-only}))))))
+
+(defn describe-table-fields-xf
+  "Returns a transducer for computing metadata about the fields in a table, given the database `db`."
+  [driver db]
+  (comp
+   (describe-fields-xf driver db)
+   (map-indexed (fn [i col] (assoc col :database-position i)))))
 
 (defmulti describe-table-fields
   "Returns a set of column metadata for `table` using JDBC Connection `conn`."
@@ -203,7 +210,7 @@
   [driver conn table db-name-or-nil]
   (into
    #{}
-   (describe-fields-xf driver (table/database table))
+   (describe-table-fields-xf driver (table/database table))
    (fields-metadata driver conn table db-name-or-nil)))
 
 (defmulti describe-fields
