@@ -229,7 +229,7 @@
             qual-tbl-nm  (format "\"%s\".\"%s\"" (redshift.test/unique-session-schema) tbl-nm)
             view-nm      "late_binding_view"
             qual-view-nm (format "\"%s\".\"%s\"" (redshift.test/unique-session-schema) view-nm)]
-        (t2.with-temp/with-temp [Database database {:engine :redshift, :details db-details}]
+        (mt/with-temp [Database database {:engine :redshift, :details db-details}]
           (try
             ;; create a table with a CHARACTER VARYING and a NUMERIC column, and a late bound view that selects from it
             (execute!
@@ -239,14 +239,14 @@
              qual-tbl-nm
              qual-view-nm)
             ;; sync the schema again to pick up the new view (and table, though we aren't checking that)
-            (sync/sync-database! database)
+            (sync/sync-database! database {:scan :schema})
             (is (contains?
                  (t2/select-fn-set :name Table :db_id (u/the-id database)) ; the new view should have been synced
                  view-nm))
             (let [table-id (t2/select-one-pk Table :db_id (u/the-id database), :name view-nm)]
               ;; and its columns' :base_type should have been identified correctly
-              (is (= [{:name "numeric_col",   :database_type "numeric(10,2)",         :base_type :type/Decimal}
-                      {:name "weird_varchar", :database_type "character varying(50)", :base_type :type/Text}]
+              (is (= [{:name "numeric_col",   :database_type "numeric",           :base_type :type/Decimal}
+                      {:name "weird_varchar", :database_type "character varying", :base_type :type/Text}]
                      (map
                       mt/derecordize
                       (t2/select [Field :name :database_type :base_type] :table_id table-id {:order-by [:name]})))))

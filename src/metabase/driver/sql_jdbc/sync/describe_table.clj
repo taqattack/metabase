@@ -252,11 +252,11 @@ LEFT JOIN (
         AND tc.table_name = kc.table_name
     WHERE
         tc.constraint_type = 'PRIMARY KEY'
-) pk ON c.table_schema = pk.table_schema AND c.table_name = pk.table_name AND c.column_name = pk.column_name
+) pk ON c.schema_name = pk.table_schema AND c.table_name = pk.table_name AND c.column_name = pk.column_name
 WHERE
-    c.table_schema NOT IN ('pg_catalog', 'information_schema')
+    c.schema_name NOT IN ('pg_catalog', 'information_schema')
 ORDER BY
-    c.table_schema,
+    c.schema_name,
     c.table_name,
     c.ordinal_position
 ")
