@@ -310,13 +310,6 @@
   dispatch-on-initialized-driver
   :hierarchy #'hierarchy)
 
-(defmulti describe-fields
-  "Return a reducible collection containing information that describes all of the fields in a `database`, given an
-  instance of the `Database` model. Results should match the [[metabase.sync.interface/TableMetadata]] schema."
-  {:added "0.50.0" :arglists '([driver database conn])}
-  dispatch-on-initialized-driver
-  :hierarchy #'hierarchy)
-
 (defmulti describe-table
   "Return a map containing information that describes the physical schema of `table` (i.e. the fields contained
   therein). `database` will be an instance of the `Database` model; and `table`, an instance of the `Table` model. It
@@ -354,6 +347,14 @@
 
 (defmethod describe-table-fks ::driver [_ _ _]
   nil)
+
+(defmulti describe-fields
+  "Returns a reducible collection of field metadata for `table` for a `database`.
+  The metadata is partitioned by the table's schema and name."
+  {:added    "0.50.0"
+   :arglists '([driver database])}
+  dispatch-on-initialized-driver
+  :hierarchy #'hierarchy)
 
 (defmulti describe-fks
   "Return information about the foreign keys in a `table`. Required for drivers that support `:foreign-keys` and `:fast-sync-fks`. Results

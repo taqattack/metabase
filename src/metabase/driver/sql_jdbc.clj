@@ -89,10 +89,9 @@
   [driver database]
   (sql-jdbc.sync/describe-database driver database))
 
-;; TODO: this probably shouldn't tale a conn arg
 (defmethod driver/describe-fields :sql-jdbc
-  [driver database conn]
-  (sql-jdbc.sync/describe-fields driver database conn))
+  [driver database]
+  (sql-jdbc.sync/describe-fields driver database))
 
 (defmethod driver/describe-table :sql-jdbc
   [driver database table]

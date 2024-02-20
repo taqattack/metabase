@@ -211,14 +211,6 @@
    (describe-table-fields-xf driver (table/database table))
    (fields-metadata driver conn table db-name-or-nil)))
 
-(defmulti describe-fields
-  "Returns a reducible collection of field metadata for `table` using JDBC Connection `conn`.
-  The metadata is partitioned by the table's schema and name."
-  {:added    "0.50.0"
-   :arglists '([driver ^Connection conn database])}
-  driver/dispatch-on-initialized-driver
-  :hierarchy #'driver/hierarchy)
-
 (def ^:private redshift-fields-metadata-query "
 SELECT
     c.column_name AS name,
@@ -312,24 +304,29 @@ ORDER BY
 ;; TODO: this works only for postgres atm, it should be a multimethod implementation
 (defn- postgres-fields-metadata
   "Returns a reducible collection of column metadata including primary keys"
-  [driver ^Connection conn]
-  {:pre [(instance? Connection conn)]}
+  [driver ^Connection db]
   (reify clojure.lang.IReduceInit
     (reduce [_ rf init]
-      (with-open [stmt (.createStatement conn)]
-        (with-open [^ResultSet rs (.executeQuery stmt (fields-metadata-query driver))]
-          (reduce
-           ((take-while some?) rf)
-           init
-           (jdbc/reducible-result-set rs {})))))))
+      (sql-jdbc.execute/do-with-connection-with-options
+       (:engine db)
+       (sql-jdbc.conn/connection-details->spec (:engine db) (:details db))
+       nil
+       (fn [conn]
+         (with-open [stmt (.createStatement conn)]
+           (with-open [^ResultSet rs (.executeQuery stmt (fields-metadata-query driver))]
+             (reduce
+              ((take-while some?) rf)
+              init
+              (jdbc/reducible-result-set rs {})))))))))
 
-(defmethod describe-fields :sql-jdbc
-  [driver conn db]
+(defn describe-fields
+  "Default implementation of `driver/describe-table` for SQL JDBC drivers."
+  [driver db]
   (into []
         (comp
          (describe-fields-xf driver db)
          (partition-by (juxt :table-schema :table-name)))
-        (postgres-fields-metadata driver conn)))
+        (postgres-fields-metadata driver db)))
 
 (defmulti get-table-pks
   "Returns a vector of primary keys for `table` using a JDBC DatabaseMetaData from JDBC Connection `conn`.
@@ -366,10 +363,6 @@ ORDER BY
   :hierarchy #'driver/hierarchy)
 
 (defmethod get-fks :default
-  ;; WARNING this implementation using .getPrimaryKeys makes a stronger assumption than the JDBC spec of
-  ;; getPrimaryKeys guarantees: that .getPrimaryKeys with a null `TABLE_NAME` returns all the primary keys available in
-  ;; the connection. This might behaviour might not be the same for all JDBC drivers.
-  ;; https://docs.oracle.com/javase/8/docs/api/java/sql/DatabaseMetaData.html#getPrimaryKeys-java.lang.String-java.lang.String-java.lang.String-
   [_driver ^Connection conn & {:keys [catalog-name schema-name table-name]}]
   (let [^DatabaseMetaData metadata (.getMetaData conn)]
     (into []

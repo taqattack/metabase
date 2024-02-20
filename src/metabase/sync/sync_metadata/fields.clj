@@ -41,8 +41,6 @@
    (:require
     [medley.core :as m]
     [metabase.driver :as driver]
-    [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
-    [metabase.driver.sql-jdbc.sync.describe-table :as sql-jdbc.describe-table]
     [metabase.driver.util :as driver.u]
     [metabase.models.table :as table]
     [metabase.sync.interface :as i]
@@ -106,14 +104,7 @@
    [database  :- i/DatabaseInstance
     tables    :- [:sequential i/TableInstance]]
    (sync-util/with-error-handling (format "Error syncing Fields for Database ''%s''" (sync-util/name-for-logging database))
-     (let [db-metadata
-           (sql-jdbc.execute/do-with-connection-with-options
-            (driver.u/database->driver database)
-            database
-            nil
-            (fn [conn]
-             ;; TODO: replace this with multimethod call
-              (sql-jdbc.describe-table/describe-fields (driver.u/database->driver database) conn database)))]
+     (let [db-metadata (driver/describe-fields (driver.u/database->driver database) database)]
        {:total-fields   (count db-metadata) ;; this is misleading because total-fields includes pg_catalog fields etc
         :updated-fields (sync-and-update-tables! tables db-metadata)})))
 
