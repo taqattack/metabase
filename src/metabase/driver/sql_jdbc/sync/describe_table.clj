@@ -218,13 +218,10 @@ SELECT
     c.ordinal_position AS \"database-position\",
     c.schema_name AS \"table-schema\",
     c.table_name AS \"table-name\",
-    null AS \"database-is-auto-increment\",
-    null AS \"database-required\",
+    null AS \"database-is-auto-increment\", -- only needed for actions, which redshift doesn't support yet
+    null AS \"database-required\",          -- only needed for actions, which redshift doesn't support yet
     pk.column_name IS NOT NULL AS \"pk?\",
-    null AS \"field-comment\"
-    -- COALESCE(c.column_default LIKE 'nextval(%' OR c.is_identity = 'YES', FALSE) AS \"database-is-auto-increment\",
-    -- COALESCE(is_nullable = 'NO' AND column_default IS NULL AND is_identity = 'NO' AND is_generated = 'NEVER', FALSE) AS \"database-required\",
-    -- col_description(fc.oid, c.ordinal_position::int) AS \"field-comment\"
+    c.remarks AS \"field-comment\"
 FROM
     svv_all_columns c
 -- TODO: join on pg_catalog.pg_type to get the type name?
