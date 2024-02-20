@@ -52,8 +52,7 @@
      (cond-> [(assoc (sync-metadata/sync-db-metadata! database) :name "metadata")]
        (= scan :full)
        (conj (assoc (analyze/analyze-db! database) :name "analyze")
-             ;; TODO: remove me, this is just to make tests run faster
-             #_(assoc (field-values/update-field-values! database) :name "field-values"))))))
+             (assoc (field-values/update-field-values! database) :name "field-values"))))))
 
 (mu/defn sync-table!
   "Perform all the different sync operations synchronously for a given `table`. Since often called on a sequence of

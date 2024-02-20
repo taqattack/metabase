@@ -64,6 +64,7 @@
                               :table-privileges         true
                               :schemas                  true
                               :fast-sync-fields         true
+                              :fast-sync-fks            true
                               :connection-impersonation true}]
   (defmethod driver/database-supports? [:postgres feature] [_driver _feature _db] supported?))
 
@@ -75,9 +76,7 @@
 (doseq [feature [:actions
                  :actions/custom
                  :uploads
-                 :index-info
-                ;;  :fast-sync-fields
-                 ]]
+                 :index-info]]
   (defmethod driver/database-supports? [:postgres feature]
     [driver _feat _db]
     (= driver :postgres)))

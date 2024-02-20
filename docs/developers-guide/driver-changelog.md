@@ -4,6 +4,14 @@ title: Driver interface changelog
 
 # Driver Interface Changelog
 
+## Metabase 0.50.0
+
+- The multimethod `metabase.driver/describe-fields` has been added. The method needs to be
+  implemented if the database supports the `:fast-sync-fields` feature.
+
+- The multimethod `metabase.driver/describe-fks` has been added. The method needs to be implemented if the database
+  supports the `:foreign-keys` and `:fast-sync-fks` features.
+
 ## Metabase 0.49.0
 
 - The multimethod `metabase.driver.sql-jdbc.sync.interface/current-user-table-privileges` has been added.

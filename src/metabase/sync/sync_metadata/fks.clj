@@ -108,7 +108,7 @@
   DB based on values from the `FKMetadata` returned by [[metabase.driver/describe-table-fks]]."
   [database :- i/DatabaseInstance]
   (if (driver/database-supports? (driver.u/database->driver database)
-                                 :fast-sync-fields
+                                 :fast-sync-fks
                                  database)
     (->> (sync-util/db->sync-tables database)
          (sync-fks-for-tables! database))

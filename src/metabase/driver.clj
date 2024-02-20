@@ -566,8 +566,11 @@
     ;; Does the driver support column(s) support storing index info
     :index-info
 
-    ;; Does the driver support faster syncs by using a faster method of fetching field metadata?
-    :fast-sync-fields})
+    ;; Does the driver support a faster `sync-fields` step by fetching all field metadata in a single collection?
+    :fast-sync-fields
+
+    ;; Does the driver support a faster `sync-fks` step by fetching all FK metadata in a single collection?
+    :fast-sync-fks})
 
 
 (defmulti supports?
