@@ -350,6 +350,50 @@ ORDER BY
               #(.getPrimaryKeys metadata db-name-or-nil (:schema table) (:name table))
               (fn [^ResultSet rs] #(.getString rs "COLUMN_NAME"))))))
 
+(defmulti get-fks
+  "Returns an ISeq of primary keys for using a JDBC DatabaseMetaData from JDBC
+  Connection `conn`. Ref: https://docs.oracle.com/javase/8/docs/api/java/sql/DatabaseMetaData.html#getPrimaryKeys-java.lang.String-java.lang.String-java.lang.String-
+
+  The items are ordered by TABLE_CATEGORY, TABLE_SCHEMA, TABLE_NAME, and KEY_SEQ
+
+  Note: If catalog-name, schema-name, and table-name are not passed as kwargs, this must return all pks that the
+  metadata's connection can access. This is an undocumented feature of the .getPrimaryKeys method, but it is
+  implemented this way for Postgres and probably other databases."
+  {:changelog-test/ignore true
+   :added    "0.50.0"
+   :arglists '([driver ^Connection conn & {:as kwargs}])}
+  driver/dispatch-on-initialized-driver
+  :hierarchy #'driver/hierarchy)
+
+(defmethod get-fks :default
+  ;; WARNING this implementation using .getPrimaryKeys makes a stronger assumption than the JDBC spec of
+  ;; getPrimaryKeys guarantees: that .getPrimaryKeys with a null `TABLE_NAME` returns all the primary keys available in
+  ;; the connection. This might behaviour might not be the same for all JDBC drivers.
+  ;; https://docs.oracle.com/javase/8/docs/api/java/sql/DatabaseMetaData.html#getPrimaryKeys-java.lang.String-java.lang.String-java.lang.String-
+  [_driver ^Connection conn & {:keys [catalog-name schema-name table-name]}]
+  (let [^DatabaseMetaData metadata (.getMetaData conn)]
+    (into []
+          (sql-jdbc.sync.common/reducible-results
+           #(.getImportedKeys metadata catalog-name schema-name table-name)
+           (fn [^ResultSet rs]
+             (fn []
+               {:fk-table       {:name   (.getString rs "FKTABLE_NAME")
+                                 :schema (.getString rs "FKTABLE_SCHEM")}
+                :pk-table       {:name   (.getString rs "PKTABLE_NAME")
+                                 :schema (.getString rs "PKTABLE_SCHEM")}
+                :fk-column-name (.getString rs "FKCOLUMN_NAME")
+                :pk-column-name (.getString rs "PKCOLUMN_NAME")}))))))
+
+(defn describe-fks
+  "Default implementation of [[metabase.driver/describe-fks]] for SQL JDBC drivers. Uses JDBC DatabaseMetaData."
+  [driver db]
+  (sql-jdbc.execute/do-with-connection-with-options
+   driver
+   db
+   nil
+   (fn [^Connection conn]
+     (get-fks driver conn {}))))
+
 (defn add-table-pks
   "Using `conn`, find any primary keys for `table` (or more, see: [[get-table-pks]]) and finally assoc `:pk?` to true for those columns."
   [driver ^Connection conn db-name-or-nil table]

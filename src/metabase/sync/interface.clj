@@ -94,6 +94,28 @@
   "Schema for an individual entry in `FKMetadata`."
   [:ref ::FKMetadataEntry])
 
+(mr/def ::FastFKMetadataEntry
+  [:map
+   [:fk-column-name   ::lib.schema.common/non-blank-string]
+   [:fk-table         [:map
+                       [:name   ::lib.schema.common/non-blank-string]
+                       [:schema [:maybe ::lib.schema.common/non-blank-string]]]]
+   [:pk-table         [:map
+                       [:name   ::lib.schema.common/non-blank-string]
+                       [:schema [:maybe ::lib.schema.common/non-blank-string]]]]
+   [:pk-column-name ::lib.schema.common/non-blank-string]])
+
+(def FastFKMetadataEntry
+  "Schema for an individual entry in `FKMetadata`."
+  [:ref ::FastFKMetadataEntry])
+
+(mr/def ::FastFKMetadata
+  [:maybe [:sequential FastFKMetadataEntry]])
+
+(def FastFKMetadata
+  "Schema for the expected output of `describe-fks`."
+  [:ref ::FastFKMetadata])
+
 (mr/def ::FKMetadata
   [:maybe [:set FKMetadataEntry]])
 

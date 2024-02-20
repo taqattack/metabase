@@ -211,6 +211,7 @@
 ;; and used later in `database-type->base-type`, which you will find below.
 (defmethod driver/describe-table :postgres
   [driver database table]
+  ;; TODO: we should handle enum-types with describe-fields as well
   (binding [*enum-types* (enum-types driver database)]
     (sql-jdbc.sync/describe-table driver database table)))
 

@@ -355,6 +355,16 @@
 (defmethod describe-table-fks ::driver [_ _ _]
   nil)
 
+(defmulti describe-fks
+  "Return information about the foreign keys in a `table`. Required for drivers that support `:foreign-keys` and `:fast-sync-fks`. Results
+  should match the [[metabase.sync.interface/FastFKMetadata]] schema."
+  {:added "0.50.0" :arglists '([driver database])}
+  dispatch-on-initialized-driver
+  :hierarchy #'hierarchy)
+
+(defmethod describe-fks ::driver [_ _]
+  nil)
+
 ;;; this is no longer used but we can leave it around for not for documentation purposes. Maybe we can actually do
 ;;; something useful with it like write a test that validates that drivers return correct connection details?
 

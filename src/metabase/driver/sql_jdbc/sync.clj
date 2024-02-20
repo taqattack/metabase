@@ -30,6 +30,7 @@
   describe-table
   describe-table-fields
   describe-fields
+  describe-fks
   describe-table-fks
   describe-table-indexes
   get-catalogs

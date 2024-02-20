@@ -273,15 +273,15 @@
                   "CASE WHEN shop_status = 'open' THEN 11387.133 END AS case_when_numeric_inc_nulls "
                   "FROM test_data) WITH NO SCHEMA BINDING;")
              qual-view-nm)
-            (sync/sync-database! database)
+            (sync/sync-database! database {:scan :schema})
             (is (contains?
                  (t2/select-fn-set :name Table :db_id (u/the-id database)) ; the new view should have been synced without errors
                  view-nm))
             (let [table-id (t2/select-one-pk Table :db_id (u/the-id database), :name view-nm)]
               ;; and its columns' :base_type should have been identified correctly
-              (is (= [{:name "case_when_numeric_inc_nulls", :database_type "numeric",              :base_type :type/Decimal}
-                      {:name "raw_null",                    :database_type "varchar",              :base_type :type/Text}
-                      {:name "raw_var",                     :database_type "character varying(5)", :base_type :type/Text}]
+              (is (= [{:name "case_when_numeric_inc_nulls", :database_type "numeric",           :base_type :type/Decimal}
+                      {:name "raw_null",                    :database_type "character varying", :base_type :type/Text}
+                      {:name "raw_var",                     :database_type "character varying", :base_type :type/Text}]
                      (t2/select [Field :name :database_type :base_type] :table_id table-id {:order-by [:name]}))))
             (finally
               (execute! (str "DROP VIEW IF EXISTS %s;")
