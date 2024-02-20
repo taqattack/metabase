@@ -222,9 +222,9 @@
 (def ^:private redshift-fields-metadata-query "
 SELECT
     c.column_name AS name,
-    c.data_type AS \"database-type\", -- TODO: this might not be the correct type name
+    c.data_type AS \"database-type\",
     c.ordinal_position AS \"database-position\",
-    c.table_schema AS \"table-schema\",
+    c.schema_name AS \"table-schema\",
     c.table_name AS \"table-name\",
     null AS \"database-is-auto-increment\",
     null AS \"database-required\",
@@ -234,8 +234,9 @@ SELECT
     -- COALESCE(is_nullable = 'NO' AND column_default IS NULL AND is_identity = 'NO' AND is_generated = 'NEVER', FALSE) AS \"database-required\",
     -- col_description(fc.oid, c.ordinal_position::int) AS \"field-comment\"
 FROM
-    information_schema.columns c
+    svv_all_columns c
 -- TODO: join on pg_catalog.pg_type to get the type name?
+-- TODO: fix PK for external tables (views probably don't have PKs)
 LEFT JOIN (
     SELECT
         tc.table_schema,
@@ -263,7 +264,7 @@ ORDER BY
 (def ^:private postgres-fields-metadata-query "
 SELECT
     c.column_name AS name,
-    t.typname AS \"database-type\",
+    c.data_type AS \"database-type\",
     c.ordinal_position AS \"database-position\",
     c.table_schema AS \"table-schema\",
     c.table_name AS \"table-name\",
@@ -275,8 +276,6 @@ FROM
     information_schema.columns c
 JOIN
     pg_catalog.pg_class fc ON c.table_name = fc.relname
-JOIN
-    pg_catalog.pg_type t ON c.udt_name = t.typname
 JOIN
     pg_catalog.pg_namespace n ON n.oid = fc.relnamespace AND c.table_schema = n.nspname
 LEFT JOIN (

@@ -582,12 +582,14 @@
    :cidr          :type/Structured ; IPv4/IPv6 network address
    :circle        :type/*
    :citext        :type/Text ; case-insensitive text
+   :character     :type/Text
    :date          :type/Date
    :decimal       :type/Decimal
    :float4        :type/Float
    :float8        :type/Float
    :geometry      :type/*
    :inet          :type/IPAddress
+   :integer       :type/Integer
    :int           :type/Integer
    :int2          :type/Integer
    :int4          :type/Integer
