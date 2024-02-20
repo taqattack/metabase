@@ -71,19 +71,23 @@
  (mu/defn ^:private sync-and-update-tables! :- ms/IntGreaterThanOrEqualToZero
    "Sync Field instances (i.e., rows in the Field table in the Metabase application DB) for a Table, and update metadata
   properties (e.g. base type and comment/remark) as needed. Returns number of Fields synced."
-   [tables         :- [:sequential i/TableInstance]
-    field-metadata :- [:sequential [:sequential i/TableMetadataField]]]
-   (let [ident->table (m/index-by (juxt :schema :name) tables)]
+   [tables      :- [:sequential i/TableInstance]
+    db-metadata :- [:sequential [:sequential i/TableMetadataField]]]
+   (let [table->ident    (juxt :schema :name)
+         metadata->ident (juxt :table-schema :table-name)
+         ident->table    (m/index-by table->ident tables)
+         table+metadata  (keep (fn [metadata]
+                                 (when-let [table (ident->table (metadata->ident (first metadata)))]
+                                   {:table    table
+                                    :metadata metadata}))
+                               db-metadata)]
      (reduce + 0
-             (for [table-metadata field-metadata
-                   :let [metadata->ident (juxt :table-schema :table-name)
-                         table (ident->table (metadata->ident (first table-metadata)))]
-                   :when table] ;; TODO: what if a table has no columns?
-               (+ (sync-instances/sync-instances! table table-metadata (fetch-metadata/our-metadata table))
+             (for [{:keys [table metadata]} table+metadata]
+               (+ (sync-instances/sync-instances! table metadata (fetch-metadata/our-metadata table))
                   ;; Now that tables are synced and fields created as needed make sure field properties are in sync.
                   ;; Re-fetch our metadata because there might be somethings that have changed after calling
                   ;; `sync-instances`
-                  (sync-metadata/update-metadata! table table-metadata (fetch-metadata/our-metadata table)))))))
+                  (sync-metadata/update-metadata! table metadata (fetch-metadata/our-metadata table)))))))
 
  (mu/defn sync-fields-for-table!
    "Sync the Fields in the Metabase application database for a specific `table`."
