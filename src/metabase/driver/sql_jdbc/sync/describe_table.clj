@@ -121,8 +121,6 @@
          (merge
            {:name                       column-name
             :database-type              (.getString rs "TYPE_NAME")
-            :table-schema               (.getString rs "TABLE_SCHEM")
-            :table-name                 (.getString rs "TABLE_NAME")
             :database-is-auto-increment auto-increment?
             :database-required          required?}
            (when-let [remarks (.getString rs "REMARKS")]
