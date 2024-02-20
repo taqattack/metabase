@@ -176,6 +176,7 @@
                        json?          (isa? base-type :type/JSON)]
                    (merge
                     (u/select-non-nil-keys col [:table-schema
+                                                :pk?
                                                 :table-name
                                                 :name
                                                 :database-type
@@ -228,6 +229,7 @@ SELECT
     -- col_description(fc.oid, c.ordinal_position::int) AS \"field-comment\"
 FROM
     information_schema.columns c
+-- TODO: join on pg_catalog.pg_type to get the type name?
 LEFT JOIN (
     SELECT
         tc.table_schema,
@@ -255,7 +257,7 @@ ORDER BY
 (def ^:private postgres-fields-metadata-query "
 SELECT
     c.column_name AS name,
-    c.data_type AS \"database-type\",
+    t.typname AS \"database-type\",
     c.table_schema AS \"table-schema\",
     c.table_name AS \"table-name\",
     COALESCE(c.column_default LIKE 'nextval(%' OR c.is_identity = 'YES', FALSE) AS \"database-is-auto-increment\",
@@ -266,6 +268,8 @@ FROM
     information_schema.columns c
 JOIN
     pg_catalog.pg_class fc ON c.table_name = fc.relname
+JOIN
+    pg_catalog.pg_type t ON c.udt_name = t.typname
 JOIN
     pg_catalog.pg_namespace n ON n.oid = fc.relnamespace AND c.table_schema = n.nspname
 LEFT JOIN (
