@@ -7,6 +7,7 @@
    [clojure.set :as set]
    [medley.core :as m]
    [metabase.driver :as driver]
+   [metabase.driver.util :as driver.u]
    [metabase.models.table :as table]
    [metabase.sync.fetch-metadata :as fetch-metadata]
    [metabase.sync.interface :as i]
@@ -93,5 +94,10 @@
   [database :- i/DatabaseInstance
    table    :- i/TableInstance]
   (cond-> (:fields (fetch-metadata/table-metadata database table))
-    (driver/database-supports? (:engine database) :nested-field-columns database)
+    (driver/database-supports? (driver.u/database->driver database) :nested-field-columns database)
     (set/union (fetch-metadata/nfc-metadata database table))))
+
+(mu/defn fields-metadata :- [:sequential i/TableMetadata]
+  "Get more detailed information about a `table` belonging to `database`. Includes information about the Fields."
+  [database :- i/DatabaseInstance]
+  (driver/describe-fields (driver.u/database->driver database) database))

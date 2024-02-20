@@ -104,7 +104,7 @@
    [database  :- i/DatabaseInstance
     tables    :- [:sequential i/TableInstance]]
    (sync-util/with-error-handling (format "Error syncing Fields for Database ''%s''" (sync-util/name-for-logging database))
-     (let [db-metadata (driver/describe-fields (driver.u/database->driver database) database)]
+     (let [db-metadata (fetch-metadata/fields-metadata database)]
        {:total-fields   (count db-metadata) ;; this is misleading because total-fields includes pg_catalog fields etc
         :updated-fields (sync-and-update-tables! tables db-metadata)})))
 
