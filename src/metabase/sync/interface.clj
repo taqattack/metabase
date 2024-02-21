@@ -107,21 +107,14 @@
    [:fk-table         [:map
                        [:name   ::lib.schema.common/non-blank-string]
                        [:schema [:maybe ::lib.schema.common/non-blank-string]]]]
-   [:pk-table         [:map
+   [:dest-table       [:map
                        [:name   ::lib.schema.common/non-blank-string]
                        [:schema [:maybe ::lib.schema.common/non-blank-string]]]]
-   [:pk-column-name ::lib.schema.common/non-blank-string]])
+   [:dest-column-name ::lib.schema.common/non-blank-string]])
 
 (def FastFKMetadataEntry
   "Schema for an individual entry in `FKMetadata`."
   [:ref ::FastFKMetadataEntry])
-
-(mr/def ::FastFKMetadata
-  [:maybe [:sequential FastFKMetadataEntry]])
-
-(def FastFKMetadata
-  "Schema for the expected output of `describe-fks`."
-  [:ref ::FastFKMetadata])
 
 ;; These schemas are provided purely as conveniences since adding `:import` statements to get the corresponding
 ;; classes from the model namespaces also requires a `:require`, which `clj-refactor` seems more than happy to strip
