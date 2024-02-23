@@ -36,19 +36,27 @@
                  :active          true
                  :visibility_type nil))
 
+(defn- active-non-fk-field [table-id field-name]
+  ;; FIXME: using this function preserves existing behaviour but is a bug!
+  ;; This means that foreign key relationships can never change
+  (t2/select-one Field
+                 :table_id           table-id
+                 :%lower.name        (u/lower-case-en field-name)
+                 :fk_target_field_id nil
+                 :active             true
+                 :visibility_type    [:not= "retired"]))
+
 (mu/defn ^:private fetch-fk-relationship-objects :- [:maybe FKRelationshipObjects]
   "Fetch the Metabase objects (Tables and Fields) that are relevant to a foreign key relationship described by FK."
   [database :- i/DatabaseInstance
    table    :- i/TableInstance
    fk       :- i/FKMetadataEntry]
-  (when-let [source-field (active-field (u/the-id table) (:fk-column-name fk))]
-    ;; TODO: this preserves existing behaviour but seems wrong.
-    (when (nil? (:fk_target_field_id source-field))
-      (when-let [dest-table (active-table (u/the-id database) (:schema (:dest-table fk)) (:name (:dest-table fk)))]
-        (when-let [dest-field (active-field (u/the-id dest-table) (:dest-column-name fk))]
-          {:source-field source-field
-           :dest-table   dest-table
-           :dest-field   dest-field})))))
+  (when-let [source-field (active-non-fk-field (u/the-id table) (:column-name fk))]
+    (when-let [dest-table (active-table (u/the-id database) (:schema (:dest-table fk)) (:name (:dest-table fk)))]
+      (when-let [dest-field (active-field (u/the-id dest-table) (:dest-column-name fk))]
+        {:source-field source-field
+         :dest-table   dest-table
+         :dest-field   dest-field}))))
 
 (mu/defn ^:private mark-fk!
   [{:keys [dest-table fk-table pk-field fk-field]}]
@@ -74,9 +82,13 @@
           ident->table   (m/index-by table->ident tables)
           maybe-fks      (eduction (map (fn [{:keys [fk-table dest-table fk-column-name dest-column-name]}]
                                           (when-let [fk-table' (ident->table (table->ident fk-table))]
-                                            (when-let [dest-table' (or (ident->table (table->ident dest-table))
-                                                                       (active-table (:id database) (:schema dest-table) (:name dest-table)))]
-                                              (when-let [fk-field (active-field (:id fk-table') fk-column-name)]
+                                            (when-let [dest-table' (or
+                                                                    ;; if the dest-table is in the list of tables we
+                                                                    ;; have in memory, just get it from there
+                                                                    (ident->table (table->ident dest-table))
+                                                                    ;; if not, query the DB
+                                                                    (active-table (:id database) (:schema dest-table) (:name dest-table)))]
+                                              (when-let [fk-field (active-non-fk-field (:id fk-table') fk-column-name)]
                                                 (when-let [pk-field (active-field (:id dest-table') dest-column-name)]
                                                   {:fk-table   fk-table'
                                                    :dest-table dest-table'
