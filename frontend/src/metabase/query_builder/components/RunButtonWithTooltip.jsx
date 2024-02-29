@@ -23,9 +23,10 @@ export default function RunButtonWithTooltip({
   getTooltip = defaultGetTooltip,
   ...props
 }) {
+  const label = getTooltip(props);
   return (
-    <Tooltip tooltip={getTooltip(props)} placement="top">
-      <RunButton {...props} />
+    <Tooltip tooltip={label} placement="top">
+      <RunButton {...props} data-palette-name={label} />
     </Tooltip>
   );
 }

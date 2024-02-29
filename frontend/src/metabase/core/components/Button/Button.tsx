@@ -1,6 +1,6 @@
 import styled from "@emotion/styled";
 import cx from "classnames";
-import type { ButtonHTMLAttributes, ReactNode, Ref, ElementType } from "react";
+import type { ButtonHTMLAttributes, ReactNode, ElementType } from "react";
 import { forwardRef } from "react";
 import _ from "underscore";
 
@@ -66,28 +66,24 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   light?: boolean;
 }
 
-const BaseButton = forwardRef(function BaseButton(
-  {
-    as,
-    className,
-    icon,
-    iconRight,
-    iconSize,
-    iconColor,
-    iconVertical = false,
-    labelBreakpoint,
-    children,
-    ...props
-  }: ButtonProps,
-  ref: Ref<HTMLButtonElement>,
-) {
+const BaseButton = forwardRef(function BaseButton({
+  as,
+  className,
+  icon,
+  iconRight,
+  iconSize,
+  iconColor,
+  iconVertical = false,
+  labelBreakpoint,
+  children,
+  ...props
+}: ButtonProps) {
   const variantClasses = BUTTON_VARIANTS.filter(variant => props[variant]).map(
     variant => "Button--" + variant,
   );
 
   return (
     <ButtonRoot
-      ref={ref}
       as={as}
       {..._.omit(props, ...BUTTON_VARIANTS)}
       className={cx("Button", className, variantClasses, {
