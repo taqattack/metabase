@@ -1,6 +1,5 @@
 import { t } from "ttag";
 
-import { useMemo } from "react";
 import EntityMenu from "metabase/components/EntityMenu";
 import { DashboardHeaderButton } from "metabase/dashboard/components/DashboardHeader/DashboardHeader.styled";
 import { Icon } from "metabase/ui";
@@ -16,27 +15,22 @@ export function TextOptionsButton({
   onAddMarkdown,
   onAddHeading,
 }: TextOptionsButtonProps) {
-  const textOptions = useMemo(
-    () => [
-      {
-        title: t`Heading`,
-        paletteLabel: t`Add heading`,
-        action: onAddHeading,
-        event: "Dashboard; Add Heading",
-      },
-      {
-        title: t`Text`,
-        paletteLabel: t`Add text`,
-        action: onAddMarkdown,
-        event: "Dashboard; Add Markdown Box",
-      },
-    ],
-    [onAddHeading, onAddMarkdown],
-  );
+  const TEXT_OPTIONS = [
+    {
+      title: t`Heading`,
+      action: onAddHeading,
+      event: "Dashboard; Add Heading",
+    },
+    {
+      title: t`Text`,
+      action: onAddMarkdown,
+      event: "Dashboard; Add Markdown Box",
+    },
+  ];
 
   return (
     <EntityMenu
-      items={textOptions}
+      items={TEXT_OPTIONS}
       trigger={
         <DashboardHeaderButton aria-label={t`Add a heading or text box`}>
           <IconContainer>

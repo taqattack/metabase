@@ -32,12 +32,7 @@ export const ConvertQueryButton = ({
 
   return (
     <Tooltip tooltip={tooltip} placement="top">
-      <SqlButton
-        onClick={handleClick}
-        aria-label={tooltip}
-        data-palette-name={tooltip}
-        data-palette-icon="sql"
-      >
+      <SqlButton onClick={handleClick} aria-label={tooltip}>
         <SqlIcon name="sql" />
       </SqlButton>
     </Tooltip>

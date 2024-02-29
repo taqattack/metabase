@@ -13,9 +13,11 @@ export function QuestionNotebookButton({
   setQueryBuilderMode,
   ...props
 }) {
-  const label = isShowingNotebook ? t`Hide editor` : t`Show editor`;
   return (
-    <Tooltip tooltip={label} placement="top">
+    <Tooltip
+      tooltip={isShowingNotebook ? t`Hide editor` : t`Show editor`}
+      placement="top"
+    >
       <ButtonRoot
         borderless={!isShowingNotebook}
         primary={isShowingNotebook}
