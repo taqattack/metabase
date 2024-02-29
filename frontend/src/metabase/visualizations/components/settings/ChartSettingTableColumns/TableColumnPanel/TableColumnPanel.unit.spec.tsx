@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 
-import { screen, renderWithProviders } from "__support__/ui";
+import { screen, renderWithProviders, within } from "__support__/ui";
 import type {
   DatasetColumn,
   TableColumnOrderSetting,
@@ -135,6 +135,15 @@ describe("DatasetColumnSelector", () => {
     const newSettings = [...COLUMN_SETTINGS];
     newSettings[columnIndex] = { ...newSettings[columnIndex], enabled: false };
     expect(onChange).toHaveBeenCalledWith(newSettings);
+  });
+
+  it("should display the info icon on each column", () => {
+    setup();
+    const items = screen.getAllByTestId(/draggable-item/);
+
+    items.forEach(item =>
+      expect(within(item).getByLabelText("More info")).toBeInTheDocument(),
+    );
   });
 });
 

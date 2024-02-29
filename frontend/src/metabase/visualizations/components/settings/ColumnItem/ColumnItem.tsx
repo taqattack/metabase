@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import type { IconProps } from "metabase/ui";
 import { Icon } from "metabase/ui";
 
@@ -13,6 +15,7 @@ import {
 
 interface ColumnItemProps {
   className?: string;
+  extra?: ReactNode;
   title: string;
   color?: string;
   role?: string;
@@ -29,6 +32,7 @@ interface ColumnItemProps {
 const BaseColumnItem = ({
   className,
   title,
+  extra,
   color,
   role,
   draggable = false,
@@ -63,6 +67,7 @@ const BaseColumnItem = ({
           <ColumnItemSpan>
             {icon && <Icon name={icon} />}
             {title}
+            {extra}
           </ColumnItemSpan>
           {onEdit && (
             <ActionIcon
