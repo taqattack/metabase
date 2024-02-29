@@ -91,7 +91,8 @@
   Permissions', all Cards' permissions are based on their parent Collection, removing the need for native read perms."
   [dbs :- [:maybe [:sequential :map]]]
   (for [db dbs]
-    (assoc db :native_permissions (if (data-perms/database-permission-for-user api/*current-user-id* :perms/native-query-editing (u/the-id db))
+    (assoc db :native_permissions (if (= :query-builder-and-native
+                                       (data-perms/full-db-permission-for-user api/*current-user-id* :perms/create-queries (u/the-id db)))
                                     :write
                                     :none))))
 
@@ -1096,10 +1097,14 @@
   at least some of its tables?)"
   [database-id schema-name]
   (or
-   (= :unrestricted (data-perms/schema-permission-for-user api/*current-user-id*
-                                                           :perms/data-access
-                                                           database-id
-                                                           schema-name))
+   (and (= :unrestricted (data-perms/database-permission-for-user api/*current-user-id*
+                                                                  :perms/view-data
+                                                                  database-id))
+        (contains? #{:query-builder :query-builder-and-native}
+                   (data-perms/schema-permission-for-user api/*current-user-id*
+                                                          :perms/create-queries
+                                                          database-id
+                                                          schema-name)))
    (current-user-can-read-schema? database-id schema-name)))
 
 (api/defendpoint GET "/:id/syncable_schemas"

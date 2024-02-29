@@ -95,11 +95,16 @@
 
 (defmethod mi/can-read? :model/Table
   ([instance]
-   (= :unrestricted (data-perms/table-permission-for-user
-                     api/*current-user-id*
-                     :perms/data-access
-                     (:db_id instance)
-                     (:id instance))))
+   (and (= :unrestricted (data-perms/database-permission-for-user
+                          api/*current-user-id*
+                          :perms/view-data
+                          (:db_id instance)))
+        (contains? #{:query-builder :query-builder-and-native}
+                   (data-perms/table-permission-for-user
+                    api/*current-user-id*
+                    :perms/create-queries
+                    (:db_id instance)
+                    (:id instance)))))
   ([_ pk]
    (mi/can-read? (t2/select-one :model/Table pk))))
 
