@@ -17,6 +17,7 @@ import type {
   DateRange,
   TimeSeriesXAxisModel,
   CartesianChartDateTimeAbsoluteUnit,
+  NumericXAxisModel,
 } from "metabase/visualizations/echarts/cartesian/model/types";
 import type {
   ComputedVisualizationSettings,
@@ -55,6 +56,8 @@ import {
   isAbsoluteDateTimeUnit,
   isRelativeDateTimeUnit,
 } from "metabase-types/guards/date-time";
+import { getFirstNonEmptySeries } from "metabase/visualizations/lib/renderer_utils";
+import { computeNumericDataInverval } from "metabase/visualizations/lib/numeric";
 import { isDate } from "metabase-lib/types/utils/isa";
 
 const KEYS_TO_COMPARE = new Set([
@@ -653,6 +656,34 @@ export function getTimeSeriesXAxisModel(
   };
 }
 
+function getNumericXAxisModel(
+  dimensionModel: DimensionModel,
+  rawSeries: RawSeries,
+  dataset: ChartDataset,
+  settings: ComputedVisualizationSettings,
+  label: string | undefined,
+  renderingContext: RenderingContext,
+): NumericXAxisModel {
+  const dimensionColumn = dimensionModel.column;
+  const xValues = dataset.map(datum => datum[X_AXIS_DATA_KEY]);
+  const extent = d3.extent(xValues) as Extent;
+  const interval = getNumericInterval(rawSeries, xValues);
+  const formatter = (value: RowValue) =>
+    renderingContext.formatValue(value, {
+      column: dimensionColumn,
+      ...(settings.column?.(dimensionColumn) ?? {}),
+      compact: settings["graph.x_axis.axis_enabled"] === "compact",
+    });
+
+  return {
+    label,
+    formatter,
+    axisType: settings["graph.x_axis.scale"] === "log" ? "log" : "value",
+    extent,
+    interval,
+  };
+}
+
 export function getXAxisModel(
   dimensionModel: DimensionModel,
   rawSeries: RawSeries,
@@ -666,6 +697,17 @@ export function getXAxisModel(
 
   if (settings["graph.x_axis.scale"] === "timeseries") {
     return getTimeSeriesXAxisModel(
+      dimensionModel,
+      rawSeries,
+      dataset,
+      settings,
+      label,
+      renderingContext,
+    );
+  }
+
+  if (settings["graph.x_axis.scale"] !== "ordinal") {
+    return getNumericXAxisModel(
       dimensionModel,
       rawSeries,
       dataset,
@@ -781,4 +823,15 @@ function getTimeSeriesXAxisInfo(
   }
 
   return { interval, timezone, lengthInIntervals, range, unit };
+}
+
+function getNumericInterval(rawSeries: RawSeries, xValues: RowValue[]) {
+  const binningInfo =
+    getFirstNonEmptySeries(rawSeries).data.cols[0].binning_info;
+  if (binningInfo) {
+    return binningInfo.bin_width;
+  }
+
+  // Otherwise try to infer from the X values
+  return computeNumericDataInverval(xValues);
 }

@@ -111,6 +111,8 @@ export type CategoryXAxisModel = BaseXAxisModel & {
 
 export type NumericXAxisModel = BaseXAxisModel & {
   axisType: "value" | "log";
+  extent: Extent;
+  interval: number;
 };
 
 export type TimeSeriesXAxisModel = BaseXAxisModel & {

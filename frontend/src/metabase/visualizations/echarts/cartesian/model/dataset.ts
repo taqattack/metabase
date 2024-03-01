@@ -396,6 +396,20 @@ export function getDimensionDisplayValueGetter(
   };
 }
 
+export function getNumericDisplayValueGetter(
+  chartModel: BaseCartesianChartModel,
+  settings: ComputedVisualizationSettings,
+) {
+  const isPowerScale = settings["graph.x_axis.scale"] === "pow";
+
+  return (value: number) => {
+    if (isPowerScale) {
+      return Math.pow(value, 2);
+    }
+    return value;
+  };
+}
+
 export const getMetricDisplayValueGetter = (
   settings: ComputedVisualizationSettings,
 ) => {

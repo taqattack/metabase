@@ -1,6 +1,8 @@
 import type {
   AxisBaseOption,
   AxisBaseOptionCommon,
+  LogAxisBaseOption,
+  ValueAxisBaseOption,
 } from "echarts/types/src/coord/axisCommonTypes";
 import type { CartesianAxisOption } from "echarts/types/src/coord/cartesian/AxisModel";
 import type {
@@ -10,14 +12,18 @@ import type {
 import type {
   BaseCartesianChartModel,
   Extent,
+  NumericXAxisModel,
   YAxisModel,
 } from "metabase/visualizations/echarts/cartesian/model/types";
 
 import { CHART_STYLE } from "metabase/visualizations/echarts/cartesian/constants/style";
 
-import { getDimensionDisplayValueGetter } from "metabase/visualizations/echarts/cartesian/model/dataset";
+import {
+  getDimensionDisplayValueGetter,
+  getNumericDisplayValueGetter,
+} from "metabase/visualizations/echarts/cartesian/model/dataset";
 import type { ChartMeasurements } from "../chart-measurements/types";
-import { isTimeSeriesAxis } from "../model/guards";
+import { isNumericAxis, isTimeSeriesAxis } from "../model/guards";
 import { getTimeSeriesIntervalDuration } from "../utils/timeseries";
 
 const NORMALIZED_RANGE = { min: 0, max: 1 };
@@ -101,6 +107,38 @@ const getRotateAngle = (settings: ComputedVisualizationSettings) => {
   }
 };
 
+const getCommonDimensionAxisOptions = (
+  chartMeasurements: ChartMeasurements,
+  settings: ComputedVisualizationSettings,
+  renderingContext: RenderingContext,
+) => {
+  const nameGap = getAxisNameGap(
+    chartMeasurements.ticksDimensions.xTicksHeight,
+  );
+  const { getColor } = renderingContext;
+  return {
+    ...getAxisNameDefaultOption(
+      renderingContext,
+      nameGap,
+      settings["graph.x_axis.labels_enabled"]
+        ? settings["graph.x_axis.title_text"]
+        : undefined,
+    ),
+    axisTick: {
+      show: false,
+    },
+    splitLine: {
+      show: false,
+    },
+    axisLine: {
+      show: !!settings["graph.x_axis.axis_enabled"],
+      lineStyle: {
+        color: getColor("border"),
+      },
+    },
+  };
+};
+
 export const buildDimensionAxis = (
   chartModel: BaseCartesianChartModel,
   settings: ComputedVisualizationSettings,
@@ -110,6 +148,17 @@ export const buildDimensionAxis = (
 ): AxisBaseOption => {
   const { getColor } = renderingContext;
   const xAxisModel = chartModel.xAxisModel;
+
+  if (isNumericAxis(xAxisModel)) {
+    return buildNumericDimensionAxis(
+      chartModel,
+      xAxisModel,
+      settings,
+      chartMeasurements,
+      renderingContext,
+    );
+  }
+
   const { axisType, formatter } = xAxisModel;
 
   const boundaryGap =
@@ -178,6 +227,45 @@ export const buildDimensionAxis = (
         }
       : {}),
   } as AxisBaseOption;
+};
+
+export const buildNumericDimensionAxis = (
+  chartModel: BaseCartesianChartModel,
+  xAxisModel: NumericXAxisModel,
+  settings: ComputedVisualizationSettings,
+  chartMeasurements: ChartMeasurements,
+  renderingContext: RenderingContext,
+): ValueAxisBaseOption | LogAxisBaseOption => {
+  const { axisType, formatter } = xAxisModel;
+  const valueGetter = getNumericDisplayValueGetter(chartModel, settings);
+
+  const [min, max] = xAxisModel.extent;
+
+  const axisPadding = xAxisModel.interval / 2;
+
+  return {
+    ...getCommonDimensionAxisOptions(
+      chartMeasurements,
+      settings,
+      renderingContext,
+    ),
+    type: axisType,
+    axisLabel: {
+      margin: CHART_STYLE.axisTicksMarginX,
+      show: !!settings["graph.x_axis.axis_enabled"],
+      rotate: getRotateAngle(settings),
+      ...getTicksDefaultOption(renderingContext),
+      formatter: (rawValue: number) => {
+        if (rawValue < min || rawValue > max) {
+          return "";
+        }
+        return ` ${formatter(valueGetter(rawValue))} `;
+      },
+    },
+    min: () => min - axisPadding,
+    max: () => max + axisPadding,
+    minInterval: xAxisModel.interval,
+  };
 };
 
 export const buildMetricAxis = (
