@@ -1,31 +1,28 @@
-import { jt, t } from "ttag";
+import { t } from "ttag";
 import type { Action as KBarAction } from "kbar";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { push } from "react-router-redux";
 import type { SearchResult } from "metabase-types/api";
-import { getSections } from "metabase/admin/settings/selectors";
-import { reloadSettings } from "metabase/admin/settings/settings";
-import { useSearchListQuery } from "metabase/common/hooks";
+import {
+  useRecentItemListQuery,
+  useSearchListQuery,
+} from "metabase/common/hooks";
 import Search from "metabase/entities/search";
-import { DEFAULT_SEARCH_LIMIT } from "metabase/lib/constants";
-import { useDispatch, useSelector } from "metabase/lib/redux";
+import { useDispatch } from "metabase/lib/redux";
 import { closeModal } from "metabase/redux/ui";
-import { Icon, Loader } from "metabase/ui";
-
-export type PaletteAction = KBarAction & {
-  component?: React.ReactNode;
-  isButton?: boolean;
-};
+import { Icon } from "metabase/ui";
+import { getIcon, getName } from "metabase/entities/recent-items";
+import * as Urls from "metabase/lib/urls";
 
 export type PalettePageId = "root" | "admin_settings";
 
-type AdminSetting = {
-  key: string;
-  display_name: string;
-  description: string | null;
-  type?: "string";
-  path: string;
-};
+// type AdminSetting = {
+//   key: string;
+//   display_name: string;
+//   description: string | null;
+//   type?: "string";
+//   path: string;
+// };
 
 export const useCommandPalette = ({
   query,
@@ -35,78 +32,77 @@ export const useCommandPalette = ({
   debouncedSearchText: string;
 }) => {
   const dispatch = useDispatch();
-  const adminSections =
-    useSelector<Record<string, { name: string; settings: AdminSetting[] }>>(
-      getSections,
-    );
+  // const adminSections =
+  //   useSelector<Record<string, { name: string; settings: AdminSetting[] }>>(
+  //     getSections,
+  //   );
 
-  useEffect(() => {
-    dispatch(reloadSettings());
-  }, [dispatch]);
+  // useEffect(() => {
+  //   dispatch(reloadSettings());
+  // }, [dispatch]);
 
-  const adminSettings = useMemo(() => {
-    return Object.keys(adminSections).reduce<AdminSetting[]>((memo, key) => {
-      const settings: AdminSetting[] = adminSections[key].settings || [];
-      const path = `/admin/settings/${key}`;
-      const acc: AdminSetting[] = [
-        ...memo,
-        ...settings
-          .filter(s => s.display_name)
-          .map(s => ({
-            name: s.display_name || "",
-            description: s.description,
-            path,
-            key: s.key,
-            display_name: `${key[0].toUpperCase()}${key.slice(1)} / ${
-              s.display_name
-            }`,
-          })),
-      ];
-      return acc;
-    }, []);
-  }, [adminSections]);
+  // const adminSettings = useMemo(() => {
+  //   return Object.keys(adminSections).reduce<AdminSetting[]>((memo, key) => {
+  //     const settings: AdminSetting[] = adminSections[key].settings || [];
+  //     const path = `/admin/settings/${key}`;
+  //     const acc: AdminSetting[] = [
+  //       ...memo,
+  //       ...settings
+  //         .filter(s => s.display_name)
+  //         .map(s => ({
+  //           name: s.display_name || "",
+  //           description: s.description,
+  //           path,
+  //           key: s.key,
+  //           display_name: `${key[0].toUpperCase()}${key.slice(1)} / ${
+  //             s.display_name
+  //           }`,
+  //         })),
+  //     ];
+  //     return acc;
+  //   }, []);
+  // }, [adminSections]);
 
-  const adminSettingsActions: PaletteAction[] = useMemo(() => {
-    return adminSettings.map(s => ({
-      parent: "admin_settings",
-      id: s.display_name,
-      name: s.display_name,
-      icon: <Icon name="gear" />,
-      perform: () => {
-        dispatch(
-          push({
-            pathname: s.path,
-            hash: `#${s.key}`,
-          }),
-        );
-      },
-    }));
-  }, [adminSettings, dispatch]);
+  // const adminSettingsActions: PaletteAction[] = useMemo(() => {
+  //   return adminSettings.map(s => ({
+  //     parent: "admin_settings",
+  //     id: s.display_name,
+  //     name: s.display_name,
+  //     icon: <Icon name="gear" />,
+  //     perform: () => {
+  //       dispatch(
+  //         push({
+  //           pathname: s.path,
+  //           hash: `#${s.key}`,
+  //         }),
+  //       );
+  //     },
+  //   }));
+  // }, [adminSettings, dispatch]);
 
   const {
     data: searchResults,
     error: searchError,
     isLoading: isSearchLoading,
   } = useSearchListQuery<SearchResult>({
-    enabled: debouncedSearchText.length > 0,
-    query: { q: debouncedSearchText, limit: DEFAULT_SEARCH_LIMIT },
+    enabled: !!debouncedSearchText,
+    query: { q: debouncedSearchText, limit: 5 },
     reload: true,
   });
 
-  const basicActions = useMemo<PaletteAction[]>(() => {
-    const ret: PaletteAction[] = [
+  const { data: recentItems } = useRecentItemListQuery({
+    enabled: !debouncedSearchText,
+    reload: true,
+  });
+
+  const basicActions = useMemo<KBarAction[]>(() => {
+    const ret: KBarAction[] = [
       {
         id: "search_docs",
-        name: `Search documentation for “${query}”`,
-        component: query
-          ? // TODO: Why use these classNames here?
-            jt`${(
-              <span className="truncate max-w-md dark:text-white">
-                Search documentation for&nbsp;
-                <strong>&ldquo;{query}&rdquo;</strong>
-              </span>
-            )}`
+        name: query
+          ? `Search documentation for "${query}"`
           : t`View documentation`,
+        section: "docs",
         keywords: query, // Always match the query string
         icon: () => <Icon name="document" />,
         perform: () => {
@@ -124,23 +120,23 @@ export const useCommandPalette = ({
     return ret;
   }, [query]);
 
-  const searchResultActions = useMemo<PaletteAction[]>(() => {
-    const ret: PaletteAction[] = [];
+  const searchResultActions = useMemo<KBarAction[]>(() => {
+    const ret: KBarAction[] = [];
     if (isSearchLoading) {
       ret.push({
         id: "search-is-loading",
         name: "Loading...",
         keywords: query,
-        component: <Loader size="sm" />,
-        section: "Search results",
+        section: "search",
       });
     } else if (searchError) {
       ret.push({
         id: "search-error",
         name: t`Could not load search results`,
-        section: "Search results",
+        section: "search",
       });
     } else if (debouncedSearchText) {
+      console.log("we goin", searchResults);
       if (searchResults?.length) {
         ret.push(
           ...searchResults.map(result => {
@@ -149,7 +145,7 @@ export const useCommandPalette = ({
               id: `search-result-${result.id}`,
               name: result.name,
               icon: <Icon {...wrappedResult.getIcon()} />,
-              section: "Search results",
+              section: "search",
               perform: () => {
                 dispatch(closeModal());
                 dispatch(push(wrappedResult.getUrl()));
@@ -162,8 +158,7 @@ export const useCommandPalette = ({
           id: "no-search-results",
           name: t`No results for “${query}”`,
           keywords: query,
-          section: "Search results",
-          isButton: false,
+          section: "search",
         });
       }
     }
@@ -177,5 +172,22 @@ export const useCommandPalette = ({
     searchResults,
   ]);
 
-  return [...basicActions, ...searchResultActions, ...adminSettingsActions];
+  const recentItemsActions = useMemo<KBarAction[]>(() => {
+    const ret: KBarAction[] = [];
+    recentItems?.forEach(item => {
+      ret.push({
+        id: `recent-item-${getName(item)}`,
+        name: getName(item),
+        icon: <Icon name={getIcon(item).name} />,
+        section: "recent",
+        perform: () => {
+          dispatch(push(Urls.modelToUrl(item) ?? ""));
+        },
+      });
+    });
+
+    return ret;
+  }, [dispatch, recentItems]);
+
+  return [...basicActions, ...searchResultActions, ...recentItemsActions];
 };

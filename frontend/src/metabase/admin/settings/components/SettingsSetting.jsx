@@ -19,6 +19,7 @@ import SettingRadio from "./widgets/SettingRadio";
 import SettingText from "./widgets/SettingText";
 import SettingToggle from "./widgets/SettingToggle";
 import SettingSelect from "./widgets/deprecated/SettingSelect";
+import { settingToFormFieldId, getEnvVarDocsUrl } from "../utils";
 
 const SETTING_WIDGET_MAP = {
   string: SettingInput,

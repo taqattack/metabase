@@ -1,8 +1,9 @@
+import _ from "underscore";
 import { useCallback, useState, type ReactNode } from "react";
 import { useDebounce } from "react-use";
 import { push } from "react-router-redux";
 
-import type { ActionImpl } from "kbar";
+import type { Action, ActionImpl } from "kbar";
 import {
   KBarPortal,
   KBarProvider,
@@ -17,12 +18,9 @@ import { SEARCH_DEBOUNCE_DURATION } from "metabase/lib/constants";
 import { Flex, Icon, Modal, Text, Box } from "metabase/ui";
 import { color } from "metabase/lib/colors";
 import * as Urls from "metabase/lib/urls";
-import { useDispatch } from "metabase/lib/redux";
+import { useDispatch, useSelector } from "metabase/lib/redux";
 import { closeModal, setOpenModal } from "metabase/redux/ui";
-import {
-  type PaletteAction,
-  useCommandPalette,
-} from "../hooks/useCommandPalette";
+import { useCommandPalette } from "../hooks/useCommandPalette";
 
 import {
   PaletteFooterContainer,
@@ -31,6 +29,7 @@ import {
   PaletteResultList,
   PaletteResultsSectionHeader,
 } from "./Palette.styled";
+import { getUserIsAdmin } from "metabase/selectors/user";
 
 // TODO: Maybe scroll to the selected item in the palette when it's out of sight
 
@@ -79,6 +78,8 @@ const EnterIcon = ({
 /** Command palette */
 export const Palette = ({ children }: { children: ReactNode }) => {
   const dispatch = useDispatch();
+  const isAdmin = useSelector(getUserIsAdmin);
+
   const openNewModal = useCallback(
     (modalId: string) => {
       dispatch(closeModal());
@@ -87,7 +88,7 @@ export const Palette = ({ children }: { children: ReactNode }) => {
     [dispatch],
   );
 
-  const initialActions = [
+  const initialActions: Action[] = [
     {
       id: "new_collection",
       name: t`New collection`,
@@ -121,21 +122,77 @@ export const Palette = ({ children }: { children: ReactNode }) => {
       },
     },
     {
-      id: "admin_settings",
-      name: t`Admin settings`,
-      icon: <Icon name="gear" />,
-    },
-    // TODO: Ensure this action gets replaced with query-based search when a search string is present
-    {
-      id: "search_docs",
-      name: t`View documentation`,
-      icon: <Icon name="reference" />,
+      id: "new_query",
+      name: t`New SQL query`,
+      icon: <Icon name="sql" />,
       perform: () => {
-        const host = "https://www.metabase.com";
-        window.open(`${host}/docs/latest`);
+        dispatch(closeModal());
+        dispatch(
+          push(
+            Urls.newQuestion({
+              type: "native",
+              creationType: "native_question",
+              cardType: "question",
+            }),
+          ),
+        );
+      },
+    },
+    {
+      id: "new_model",
+      name: t`New model`,
+      icon: <Icon name="model" />,
+      perform: () => {
+        dispatch(closeModal());
+        dispatch(push("model/new"));
+      },
+    },
+    {
+      id: "new_action",
+      name: t`New action`,
+      icon: <Icon name="bolt" />,
+      perform: () => {
+        openNewModal("action");
+      },
+    },
+    {
+      id: "navigate_data",
+      name: t`Browse Data`,
+      icon: <Icon name="database" />,
+      perform: () => {
+        dispatch(push("/browse"));
+      },
+    },
+    {
+      id: "navigate_databases",
+      name: t`Browse Databases`,
+      keywords: "db",
+      icon: <Icon name="database" />,
+      perform: () => {
+        dispatch(push("/browse/databases"));
+      },
+    },
+    {
+      id: "navigate_models",
+      name: t`Browse Models`,
+      icon: <Icon name="model" />,
+      perform: () => {
+        dispatch(push("/browse/models"));
       },
     },
   ];
+
+  if (isAdmin) {
+    initialActions.push({
+      id: "navigate_admin",
+      name: t`Admin Settings`,
+      icon: <Icon name="gear" />,
+      perform: () => {
+        dispatch(push("/admin"));
+      },
+    });
+  }
+
   // Opening and closing is handled by KBar, so the modal is given an
   // empty function
   return (
@@ -180,14 +237,14 @@ export const PaletteResults = () => {
 
   useRegisterActions(actions, actions);
 
-  const paletteActions = new Map<string, PaletteAction>();
-
   const { results } = useMatches();
+
+  const processedResults = processResults(results);
 
   return (
     <PaletteResultList>
       <KBarResults
-        items={results}
+        items={processedResults}
         onRender={({
           item,
           active,
@@ -195,8 +252,6 @@ export const PaletteResults = () => {
           item: string | ActionImpl;
           active: boolean;
         }) => {
-          const paletteAction =
-            typeof item === "object" ? paletteActions.get(item.id) : null;
           return (
             <PaletteResult active={active}>
               {typeof item === "string" ? (
@@ -212,7 +267,7 @@ export const PaletteResults = () => {
                 >
                   <Flex gap=".5rem">
                     {item.icon || <Icon name="click" />}
-                    {paletteAction?.component ?? item.name}
+                    {item.name}
                   </Flex>
                   <EnterIcon active={active} fill={color("brand")} />
                 </Flex>
@@ -223,4 +278,26 @@ export const PaletteResults = () => {
       />
     </PaletteResultList>
   );
+};
+
+const processResults = (results: (string | ActionImpl)[]) => {
+  const groupedResults = _.groupBy(
+    results.filter((r): r is ActionImpl => !(typeof r === "string")),
+    "section",
+  );
+
+  const actions = processSection("Actions", groupedResults["undefined"]);
+  const search = processSection("Search results", groupedResults["search"]);
+  const recent = processSection("Recent items", groupedResults["recent"]);
+  const docs = groupedResults["docs"] || [];
+
+  return [...actions.slice(0, 5), ...search, ...recent, ...docs];
+};
+
+const processSection = (sectionName: string, items?: ActionImpl[]) => {
+  if (items && items.length > 0) {
+    return [sectionName, ...items];
+  } else {
+    return [];
+  }
 };
