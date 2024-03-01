@@ -1,8 +1,3 @@
-import _ from "underscore";
-import { useCallback, useState, type ReactNode } from "react";
-import { useDebounce } from "react-use";
-import { push } from "react-router-redux";
-
 import type { Action, ActionImpl } from "kbar";
 import {
   KBarPortal,
@@ -12,14 +7,20 @@ import {
   useMatches,
   useRegisterActions,
 } from "kbar";
-
+import { useCallback, useState, type ReactNode } from "react";
+import { push } from "react-router-redux";
+import { useDebounce } from "react-use";
 import { t } from "ttag";
-import { SEARCH_DEBOUNCE_DURATION } from "metabase/lib/constants";
-import { Flex, Icon, Modal, Text, Box } from "metabase/ui";
+import _ from "underscore";
+
 import { color } from "metabase/lib/colors";
-import * as Urls from "metabase/lib/urls";
+import { SEARCH_DEBOUNCE_DURATION } from "metabase/lib/constants";
 import { useDispatch, useSelector } from "metabase/lib/redux";
+import * as Urls from "metabase/lib/urls";
 import { closeModal, setOpenModal } from "metabase/redux/ui";
+import { getUserIsAdmin } from "metabase/selectors/user";
+import { Flex, Icon, Modal, Text, Box } from "metabase/ui";
+
 import { useCommandPalette } from "../hooks/useCommandPalette";
 
 import {
@@ -29,7 +30,6 @@ import {
   PaletteResultList,
   PaletteResultsSectionHeader,
 } from "./Palette.styled";
-import { getUserIsAdmin } from "metabase/selectors/user";
 
 // TODO: Maybe scroll to the selected item in the palette when it's out of sight
 
@@ -289,9 +289,10 @@ const processResults = (results: (string | ActionImpl)[]) => {
   const actions = processSection("Actions", groupedResults["undefined"]);
   const search = processSection("Search results", groupedResults["search"]);
   const recent = processSection("Recent items", groupedResults["recent"]);
+  const admin = processSection("Admin", groupedResults["admin"]);
   const docs = groupedResults["docs"] || [];
 
-  return [...actions.slice(0, 5), ...search, ...recent, ...docs];
+  return [...admin, ...actions.slice(0, 6), ...search, ...recent, ...docs];
 };
 
 const processSection = (sectionName: string, items?: ActionImpl[]) => {

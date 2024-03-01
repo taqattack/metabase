@@ -1,28 +1,21 @@
-import { t } from "ttag";
 import type { Action as KBarAction } from "kbar";
 import { useMemo } from "react";
 import { push } from "react-router-redux";
-import type { SearchResult } from "metabase-types/api";
+import { t } from "ttag";
+
 import {
   useRecentItemListQuery,
   useSearchListQuery,
 } from "metabase/common/hooks";
+import { getIcon, getName } from "metabase/entities/recent-items";
 import Search from "metabase/entities/search";
 import { useDispatch } from "metabase/lib/redux";
+import * as Urls from "metabase/lib/urls";
 import { closeModal } from "metabase/redux/ui";
 import { Icon } from "metabase/ui";
-import { getIcon, getName } from "metabase/entities/recent-items";
-import * as Urls from "metabase/lib/urls";
+import type { SearchResult } from "metabase-types/api";
 
 export type PalettePageId = "root" | "admin_settings";
-
-// type AdminSetting = {
-//   key: string;
-//   display_name: string;
-//   description: string | null;
-//   type?: "string";
-//   path: string;
-// };
 
 export const useCommandPalette = ({
   query,
@@ -32,53 +25,6 @@ export const useCommandPalette = ({
   debouncedSearchText: string;
 }) => {
   const dispatch = useDispatch();
-  // const adminSections =
-  //   useSelector<Record<string, { name: string; settings: AdminSetting[] }>>(
-  //     getSections,
-  //   );
-
-  // useEffect(() => {
-  //   dispatch(reloadSettings());
-  // }, [dispatch]);
-
-  // const adminSettings = useMemo(() => {
-  //   return Object.keys(adminSections).reduce<AdminSetting[]>((memo, key) => {
-  //     const settings: AdminSetting[] = adminSections[key].settings || [];
-  //     const path = `/admin/settings/${key}`;
-  //     const acc: AdminSetting[] = [
-  //       ...memo,
-  //       ...settings
-  //         .filter(s => s.display_name)
-  //         .map(s => ({
-  //           name: s.display_name || "",
-  //           description: s.description,
-  //           path,
-  //           key: s.key,
-  //           display_name: `${key[0].toUpperCase()}${key.slice(1)} / ${
-  //             s.display_name
-  //           }`,
-  //         })),
-  //     ];
-  //     return acc;
-  //   }, []);
-  // }, [adminSections]);
-
-  // const adminSettingsActions: PaletteAction[] = useMemo(() => {
-  //   return adminSettings.map(s => ({
-  //     parent: "admin_settings",
-  //     id: s.display_name,
-  //     name: s.display_name,
-  //     icon: <Icon name="gear" />,
-  //     perform: () => {
-  //       dispatch(
-  //         push({
-  //           pathname: s.path,
-  //           hash: `#${s.key}`,
-  //         }),
-  //       );
-  //     },
-  //   }));
-  // }, [adminSettings, dispatch]);
 
   const {
     data: searchResults,
@@ -136,7 +82,6 @@ export const useCommandPalette = ({
         section: "search",
       });
     } else if (debouncedSearchText) {
-      console.log("we goin", searchResults);
       if (searchResults?.length) {
         ret.push(
           ...searchResults.map(result => {

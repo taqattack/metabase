@@ -1,9 +1,13 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
-import { jt } from "ttag";
 import { useLocation } from "react-use";
+import { jt } from "ttag";
+
 import ExternalLink from "metabase/core/components/ExternalLink";
 import { color } from "metabase/lib/colors";
+
+import { settingToFormFieldId, getEnvVarDocsUrl } from "../utils";
+
 import SettingHeader from "./SettingHeader";
 import {
   SettingContent,
@@ -19,7 +23,6 @@ import SettingRadio from "./widgets/SettingRadio";
 import SettingText from "./widgets/SettingText";
 import SettingToggle from "./widgets/SettingToggle";
 import SettingSelect from "./widgets/deprecated/SettingSelect";
-import { settingToFormFieldId, getEnvVarDocsUrl } from "../utils";
 
 const SETTING_WIDGET_MAP = {
   string: SettingInput,
@@ -50,7 +53,7 @@ const SettingSetting = props => {
 
         setFancyStyle({
           background: "rgba(80, 158, 227, 0.1)",
-          border: `${color("brand")} solid 1px`,
+          boxShadow: `0 0 0 1px ${color("brand")}`,
         });
 
         setTimeout(() => {

@@ -32,6 +32,7 @@ import {
   updateSetting,
 } from "../../../settings";
 
+import { SettingsCommandPaletteActions } from "./SettingsCommandPaletteActions";
 import { NewVersionIndicator } from "./SettingsEditor.styled";
 import { SettingsSection } from "./SettingsSection";
 
@@ -260,6 +261,7 @@ class SettingsEditor extends Component {
       <AdminLayout sidebar={this.renderSettingsSections()}>
         <SaveStatus ref={this.saveStatusRef} />
         <ErrorBoundary>{this.renderSettingsPane()}</ErrorBoundary>
+        <SettingsCommandPaletteActions sections={this.props.sections} />
       </AdminLayout>
     );
   }
