@@ -286,11 +286,13 @@ export const STACKABLE_SETTINGS = {
         single => settings.series(single).display,
       );
 
-      return isStackingValueValid(
-        series.card.display,
-        settings,
-        seriesDisplays,
-      );
+      // FIXME: provide sufficient series models to check if stacking is valid
+      return true;
+      // return isStackingValueValid(
+      //   series.card.display,
+      //   settings,
+      //   seriesDisplays,
+      // );
     },
     getDefault: ([{ card, data }], settings) => {
       return getDefaultStackingValue(settings, card);

@@ -658,7 +658,6 @@ export function getTimeSeriesXAxisModel(
 
 function getNumericXAxisModel(
   dimensionModel: DimensionModel,
-  rawSeries: RawSeries,
   dataset: ChartDataset,
   settings: ComputedVisualizationSettings,
   label: string | undefined,
@@ -666,8 +665,10 @@ function getNumericXAxisModel(
 ): NumericXAxisModel {
   const dimensionColumn = dimensionModel.column;
   const xValues = dataset.map(datum => datum[X_AXIS_DATA_KEY]);
-  const extent = d3.extent(xValues) as Extent;
-  const interval = getNumericInterval(rawSeries, xValues);
+  const extent = (xValues.length > 0 ? d3.extent(xValues) : [0, 0]) as Extent;
+  const interval =
+    dimensionColumn.binning_info?.bin_width ??
+    computeNumericDataInverval(xValues);
   const formatter = (value: RowValue) =>
     renderingContext.formatValue(value, {
       column: dimensionColumn,
@@ -675,12 +676,16 @@ function getNumericXAxisModel(
       compact: settings["graph.x_axis.axis_enabled"] === "compact",
     });
 
+  const intervalsCount = (extent[1] - extent[0]) / interval;
+
   return {
     label,
     formatter,
     axisType: settings["graph.x_axis.scale"] === "log" ? "log" : "value",
     extent,
     interval,
+    intervalsCount,
+    ticksMaxInterval: interval,
   };
 }
 
@@ -706,10 +711,12 @@ export function getXAxisModel(
     );
   }
 
-  if (settings["graph.x_axis.scale"] !== "ordinal") {
+  const isHistogram = settings["graph.x_axis.scale"] === "histogram";
+  const isOrdinal = settings["graph.x_axis.scale"] !== "ordinal";
+
+  if (!isOrdinal && !isHistogram) {
     return getNumericXAxisModel(
       dimensionModel,
-      rawSeries,
       dataset,
       settings,
       label,
@@ -718,7 +725,6 @@ export function getXAxisModel(
   }
 
   const dimensionColumn = dimensionModel.column;
-  const isHistogram = settings["graph.x_axis.scale"] === "histogram";
 
   const formatter = (value: RowValue) =>
     renderingContext.formatValue(value, {
@@ -728,27 +734,11 @@ export function getXAxisModel(
       noRange: isHistogram,
     });
 
-  const axisBaseModel = {
+  return {
     formatter,
     label,
     isHistogram,
-  };
-
-  if (
-    settings["graph.x_axis.scale"] === "ordinal" ||
-    isHistogram ||
-    isRelativeDateTimeUnit(dimensionColumn.unit)
-  ) {
-    return {
-      ...axisBaseModel,
-      axisType: "category",
-    };
-  }
-
-  return {
-    ...axisBaseModel,
-    // TODO: will be replaced by the category scale
-    axisType: settings["graph.x_axis.scale"] === "log" ? "log" : "value",
+    axisType: "category",
   };
 }
 
@@ -811,27 +801,16 @@ function getTimeSeriesXAxisInfo(
     throw new Error("Missing range");
   }
 
-  let lengthInIntervals = 0;
+  let intervalsCount = 0;
 
   if (range) {
     const [min, max] = range;
     // A single date counts as one interval
-    lengthInIntervals = Math.max(
+    intervalsCount = Math.max(
       1,
       Math.ceil(max.diff(min, interval.unit) / interval.count),
     );
   }
 
-  return { interval, timezone, lengthInIntervals, range, unit };
-}
-
-function getNumericInterval(rawSeries: RawSeries, xValues: RowValue[]) {
-  const binningInfo =
-    getFirstNonEmptySeries(rawSeries).data.cols[0].binning_info;
-  if (binningInfo) {
-    return binningInfo.bin_width;
-  }
-
-  // Otherwise try to infer from the X values
-  return computeNumericDataInverval(xValues);
+  return { interval, timezone, intervalsCount, range, unit };
 }

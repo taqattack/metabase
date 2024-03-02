@@ -113,6 +113,9 @@ export type NumericXAxisModel = BaseXAxisModel & {
   axisType: "value" | "log";
   extent: Extent;
   interval: number;
+  intervalsCount: number;
+  ticksMaxInterval?: number;
+  ticksMinInterval?: number;
 };
 
 export type TimeSeriesXAxisModel = BaseXAxisModel & {
@@ -120,7 +123,7 @@ export type TimeSeriesXAxisModel = BaseXAxisModel & {
   columnUnit?: DateTimeAbsoluteUnit;
   timezone: string;
   interval: TimeSeriesInterval;
-  lengthInIntervals: number;
+  intervalsCount: number;
   range: DateRange;
   ticksMaxInterval?: number;
   ticksMinInterval?: number;
