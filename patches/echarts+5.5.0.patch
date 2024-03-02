@@ -17,7 +17,7 @@ index fa02e2f..176bfbc 100644
 +    stackedOverValue = data.get(data.getCalculationInfo('stackedOverDimension'), idx);
 +    stackResultValue = data.get(data.getCalculationInfo('stackResultDimension'), idx);
    }
-+  if (isNaN(stackedOverValue) && !isNaN(stackResultValue)) {
++  if (isNaN(stackedOverValue) && !(dataCoordInfo.stacked && isNaN(stackResultValue))) {
 +    stackedOverValue = dataCoordInfo.valueStart;
 +}
    var baseDataOffset = dataCoordInfo.baseDataOffset;
