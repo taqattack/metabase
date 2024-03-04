@@ -424,6 +424,8 @@
 
   You can use [[metabase.query-processor.reducible/reducible-rows]] to create reducible, streaming results.
 
+  `respond` MUST BE CALLED SYNCHRONOUSLY!!!
+
   Example impl:
 
     (defmethod reducible-query :my-driver
@@ -436,8 +438,7 @@
   dispatch-on-initialized-driver
   :hierarchy #'hierarchy)
 
-;; TODO -- I think we should rename this to `features` since `driver/driver-features` is a bit redundant.
-(def driver-features
+(def features
   "Set of all features a driver can support."
   #{
     ;; Does this database support foreign key relationships?
@@ -564,25 +565,6 @@
     ;; Does the driver support a faster `sync-fks` step by fetching all FK metadata in a single collection?
     :fast-sync-fks})
 
-
-(defmulti supports?
-  "Does this driver support a certain `feature`? (A feature is a keyword, and can be any of the ones listed above in
-  [[driver-features]].)
-
-    (supports? :postgres :set-timezone) ; -> true
-
-  DEPRECATED — [[database-supports?]] should be used instead. This function will be removed in Metabase version 0.50.0."
-  {:added "0.32.0", :arglists '([driver feature]), :deprecated "0.47.0"}
-  (fn [driver feature]
-    (when-not (driver-features feature)
-      (throw (Exception. (tru "Invalid driver feature: {0}" feature))))
-    [(dispatch-on-initialized-driver driver) feature])
-  :hierarchy #'hierarchy)
-
-(defmethod supports? :default [_ _] false)
-
-(defmethod supports? [::driver :schemas] [_ _] true)
-
 (defmulti database-supports?
   "Does this driver and specific instance of a database support a certain `feature`?
   (A feature is a keyword, and can be any of the ones listed above in `driver-features`.
@@ -601,18 +583,20 @@
     (database-supports? :mongo :set-timezone mongo-db) ; -> true"
   {:arglists '([driver feature database]), :added "0.41.0"}
   (fn [driver feature _database]
-    (when-not (driver-features feature)
+    (when-not (features feature)
       (throw (Exception. (tru "Invalid driver feature: {0}" feature))))
     [(dispatch-on-initialized-driver driver) feature])
   :hierarchy #'hierarchy)
 
-(defmethod database-supports? :default [driver feature _] (supports? driver feature))
+(defmethod database-supports?
+  :default [_driver _feature _] false)
 
-(doseq [[feature supported?] {:basic-aggregations                     true
+(doseq [[feature supported?] {:convert-timezone                       false
+                              :basic-aggregations                     true
                               :case-sensitivity-string-filter-options true
                               :date-arithmetics                       true
                               :temporal-extract                       true
-                              :convert-timezone                       false
+                              :schemas                                true
                               :test/jvm-timezone-setting              true}]
   (defmethod database-supports? [::driver feature] [_driver _feature _db] supported?))
 
@@ -718,7 +702,7 @@
 
   For databases that do not feature concepts like 'prepared statements', this method need not be implemented; the
   default implementation is an identity function."
-  {:added "0.32.0", :arglists '([driver query]), :style/indent 1}
+  {:added "0.32.0", :arglists '([driver inner-query]), :style/indent 1}
   dispatch-on-initialized-driver
   :hierarchy #'hierarchy)
 
@@ -726,10 +710,8 @@
   [_ query]
   query)
 
-;; TODO - we should just have some sort of `core.async` channel to handle DB update notifications instead
-;;
 ;; TODO -- shouldn't this be called `notify-database-updated!`, since the expectation is that it is done for side
-;; effects?
+;; effects? issue: https://github.com/metabase/metabase/issues/39367
 (defmulti notify-database-updated
   "Notify the driver that the attributes of a `database` have changed, or that `database was deleted. This is
   specifically relevant in the event that the driver was doing some caching or connection pooling; the driver should
@@ -818,6 +800,7 @@
 (defmethod default-field-order ::driver [_] :database)
 
 ;; TODO -- this can vary based on session variables or connection options
+;; Issue: https://github.com/metabase/metabase/pull/39386
 (defmulti db-start-of-week
   "Return the day that is considered to be the start of week by `driver`. Should return a keyword such as `:sunday`."
   {:added "0.37.0" :arglists '([driver])}
@@ -840,8 +823,8 @@
 ;;;
 ;;; 1. We definitely should not be asking drivers to "update the value for `:details`". Drivers shouldn't touch the
 ;;;    application database.
-;;;
 ;;; 2. Something that is done for side effects like updating the application DB NEEDS TO END IN AN EXCLAMATION MARK!
+;;; Issue: https://github.com/metabase/metabase/issues/39392
 (defmulti normalize-db-details
   "Normalizes db-details for the given driver. This is to handle migrations that are too difficult to perform via
   regular Liquibase queries. This multimethod will be called from a `:post-select` handler within the database model.
