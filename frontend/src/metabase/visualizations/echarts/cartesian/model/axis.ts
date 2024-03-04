@@ -18,6 +18,7 @@ import type {
   TimeSeriesXAxisModel,
   CartesianChartDateTimeAbsoluteUnit,
   NumericXAxisModel,
+  NumericAxisScaleTransforms,
 } from "metabase/visualizations/echarts/cartesian/model/types";
 import type {
   ComputedVisualizationSettings,
@@ -29,11 +30,13 @@ import type {
   DatasetColumn,
   RowValue,
   RawSeries,
+  QuantitativeScale,
 } from "metabase-types/api";
-import { isNotNull } from "metabase/lib/types";
+import { isNotNull, isNumber } from "metabase/lib/types";
 import {
   getDatasetExtents,
   getMetricDisplayValueGetter,
+  getSeriesExtent,
 } from "metabase/visualizations/echarts/cartesian/model/dataset";
 import {
   getObjectEntries,
@@ -52,11 +55,7 @@ import {
   TICKS_INTERVAL_THRESHOLD,
   X_AXIS_DATA_KEY,
 } from "metabase/visualizations/echarts/cartesian/constants/dataset";
-import {
-  isAbsoluteDateTimeUnit,
-  isRelativeDateTimeUnit,
-} from "metabase-types/guards/date-time";
-import { getFirstNonEmptySeries } from "metabase/visualizations/lib/renderer_utils";
+import { isAbsoluteDateTimeUnit } from "metabase-types/guards/date-time";
 import { computeNumericDataInverval } from "metabase/visualizations/lib/numeric";
 import { isDate } from "metabase-lib/types/utils/isa";
 
@@ -656,19 +655,72 @@ export function getTimeSeriesXAxisModel(
   };
 }
 
+const getSign = (value: number) => (value >= 0 ? 1 : -1);
+
+const getAxisTransforms = (
+  scale: QuantitativeScale,
+): NumericAxisScaleTransforms => {
+  if (scale === "pow") {
+    return {
+      toAxisValue: value => {
+        if (!isNumber(value)) {
+          return null;
+        }
+        return Math.sqrt(Math.abs(value)) * getSign(value);
+      },
+      fromAxisValue: value => {
+        return Math.pow(value, 2) * getSign(value);
+      },
+    };
+  }
+
+  if (scale === "log") {
+    return {
+      toAxisValue: value => {
+        if (!isNumber(value)) {
+          return null;
+        }
+        return Math.log(Math.abs(value)) * getSign(value);
+      },
+      fromAxisValue: value => {
+        return Math.exp(Math.abs(value)) * getSign(value);
+      },
+    };
+  }
+
+  return {
+    toAxisValue: value => {
+      if (!isNumber(value)) {
+        return null;
+      }
+      return value;
+    },
+    fromAxisValue: value => value,
+  };
+};
+
 function getNumericXAxisModel(
   dimensionModel: DimensionModel,
   dataset: ChartDataset,
+  scale: QuantitativeScale,
   settings: ComputedVisualizationSettings,
   label: string | undefined,
+  isPadded: boolean,
   renderingContext: RenderingContext,
 ): NumericXAxisModel {
+  const axisTransforms = getAxisTransforms(scale);
   const dimensionColumn = dimensionModel.column;
+  const rawExtent = getSeriesExtent(dataset, X_AXIS_DATA_KEY) ?? [0, 0];
+  const extent: Extent = [
+    axisTransforms.toAxisValue(rawExtent[0]),
+    axisTransforms.toAxisValue(rawExtent[1]),
+  ];
+
   const xValues = dataset.map(datum => datum[X_AXIS_DATA_KEY]);
-  const extent = (xValues.length > 0 ? d3.extent(xValues) : [0, 0]) as Extent;
   const interval =
     dimensionColumn.binning_info?.bin_width ??
     computeNumericDataInverval(xValues);
+
   const formatter = (value: RowValue) =>
     renderingContext.formatValue(value, {
       column: dimensionColumn,
@@ -677,17 +729,26 @@ function getNumericXAxisModel(
     });
 
   const intervalsCount = (extent[1] - extent[0]) / interval;
+  const ticksMaxInterval = dimensionColumn.binning_info?.bin_width;
 
   return {
     label,
+    isPadded,
     formatter,
-    axisType: settings["graph.x_axis.scale"] === "log" ? "log" : "value",
+    axisType: "value",
     extent,
     interval,
     intervalsCount,
-    ticksMaxInterval: interval,
+    ticksMaxInterval,
+    ...axisTransforms,
   };
 }
+
+export const isQuantitative = (
+  scale: ComputedVisualizationSettings["graph.x_axis.scale"],
+): scale is QuantitativeScale => {
+  return scale != null && ["linear", "log", "pow"].includes(scale);
+};
 
 export function getXAxisModel(
   dimensionModel: DimensionModel,
@@ -700,7 +761,9 @@ export function getXAxisModel(
     ? settings["graph.x_axis.title_text"]
     : undefined;
 
-  if (settings["graph.x_axis.scale"] === "timeseries") {
+  const xAxisScale = settings["graph.x_axis.scale"];
+
+  if (xAxisScale === "timeseries") {
     return getTimeSeriesXAxisModel(
       dimensionModel,
       rawSeries,
@@ -711,19 +774,19 @@ export function getXAxisModel(
     );
   }
 
-  const isHistogram = settings["graph.x_axis.scale"] === "histogram";
-  const isOrdinal = settings["graph.x_axis.scale"] !== "ordinal";
-
-  if (!isOrdinal && !isHistogram) {
+  if (isQuantitative(xAxisScale)) {
     return getNumericXAxisModel(
       dimensionModel,
       dataset,
+      xAxisScale,
       settings,
       label,
+      rawSeries[0].card.display !== "scatter",
       renderingContext,
     );
   }
 
+  const isHistogram = settings["graph.x_axis.scale"] === "histogram";
   const dimensionColumn = dimensionModel.column;
 
   const formatter = (value: RowValue) =>

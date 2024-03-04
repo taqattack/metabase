@@ -18,10 +18,7 @@ import type {
 
 import { CHART_STYLE } from "metabase/visualizations/echarts/cartesian/constants/style";
 
-import {
-  getDimensionDisplayValueGetter,
-  getNumericDisplayValueGetter,
-} from "metabase/visualizations/echarts/cartesian/model/dataset";
+import { getDimensionDisplayValueGetter } from "metabase/visualizations/echarts/cartesian/model/dataset";
 import type { ChartMeasurements } from "../chart-measurements/types";
 import { isNumericAxis, isTimeSeriesAxis } from "../model/guards";
 import { getTimeSeriesIntervalDuration } from "../utils/timeseries";
@@ -236,12 +233,17 @@ export const buildNumericDimensionAxis = (
   chartMeasurements: ChartMeasurements,
   renderingContext: RenderingContext,
 ): ValueAxisBaseOption | LogAxisBaseOption => {
-  const { axisType, formatter } = xAxisModel;
-  const valueGetter = getNumericDisplayValueGetter(chartModel, settings);
+  const {
+    fromAxisValue,
+    isPadded,
+    extent,
+    interval,
+    ticksMaxInterval,
+    formatter,
+  } = xAxisModel;
 
-  const [min, max] = xAxisModel.extent;
-
-  const axisPadding = xAxisModel.interval / 2;
+  const [min, max] = extent;
+  const axisPadding = interval / 2;
 
   return {
     ...getCommonDimensionAxisOptions(
@@ -249,7 +251,7 @@ export const buildNumericDimensionAxis = (
       settings,
       renderingContext,
     ),
-    type: axisType,
+    type: "value",
     axisLabel: {
       margin: CHART_STYLE.axisTicksMarginX,
       show: !!settings["graph.x_axis.axis_enabled"],
@@ -259,13 +261,16 @@ export const buildNumericDimensionAxis = (
         if (rawValue < min || rawValue > max) {
           return "";
         }
-        return ` ${formatter(valueGetter(rawValue))} `;
+        return ` ${formatter(fromAxisValue(rawValue))} `;
       },
     },
-    min: () => min - axisPadding,
-    max: () => max + axisPadding,
-    minInterval: xAxisModel.ticksMinInterval,
-    maxInterval: xAxisModel.ticksMaxInterval,
+    ...(isPadded
+      ? {
+          min: () => min - axisPadding,
+          max: () => max + axisPadding,
+        }
+      : {}),
+    maxInterval: ticksMaxInterval,
   };
 };
 

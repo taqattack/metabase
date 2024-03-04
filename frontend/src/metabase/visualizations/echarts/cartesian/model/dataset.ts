@@ -14,6 +14,7 @@ import type {
   SeriesModel,
   Datum,
   BaseCartesianChartModel,
+  XAxisModel,
 } from "metabase/visualizations/echarts/cartesian/model/types";
 import type { CartesianChartColumns } from "metabase/visualizations/lib/graph/columns";
 import type { ComputedVisualizationSettings } from "metabase/visualizations/types";
@@ -28,6 +29,7 @@ import {
   X_AXIS_DATA_KEY,
 } from "metabase/visualizations/echarts/cartesian/constants/dataset";
 import { isMetric, isNumeric } from "metabase-lib/types/utils/isa";
+import { isNumericAxis } from "./guards";
 
 /**
  * Sums two metric column values.
@@ -292,6 +294,7 @@ export const applySquareRootScaling = (value: RowValue): RowValue => {
  */
 export const applyVisualizationSettingsDataTransformations = (
   dataset: ChartDataset,
+  xAxisModel: XAxisModel,
   seriesModels: SeriesModel[],
   settings: ComputedVisualizationSettings,
 ): ChartDataset => {
@@ -304,15 +307,12 @@ export const applyVisualizationSettingsDataTransformations = (
       fn: getNormalizedDatasetTransform(seriesDataKeys),
     },
     {
-      condition: settings["graph.y_axis.scale"] === "pow",
-      fn: getKeyBasedDatasetTransform(seriesDataKeys, applySquareRootScaling),
-    },
-    {
-      condition: settings["graph.x_axis.scale"] === "pow",
-      fn: getKeyBasedDatasetTransform(
-        [X_AXIS_DATA_KEY],
-        applySquareRootScaling,
-      ),
+      condition: isNumericAxis(xAxisModel),
+      fn: getKeyBasedDatasetTransform([X_AXIS_DATA_KEY], value => {
+        return isNumericAxis(xAxisModel)
+          ? xAxisModel.toAxisValue(value)
+          : value;
+      }),
     },
     {
       condition: settings["stackable.stack_type"] === "stacked",
@@ -498,34 +498,39 @@ export const getDatasetExtents = (
   keys: DataKey[],
   dataset: ChartDataset,
 ): SeriesExtents => {
-  const extents: SeriesExtents = {};
+  return keys.reduce((acc, key) => {
+    const extent = getSeriesExtent(dataset, key);
+    if (extent != null) {
+      acc[key] = extent;
+    }
+    return acc;
+  }, {} as SeriesExtents);
+};
 
-  dataset.forEach(item => {
-    keys.forEach(key => {
-      const value = item[key];
+export const getSeriesExtent = (dataset: ChartDataset, key: DataKey) => {
+  let extent: Extent | null = null;
 
-      if (typeof value !== "number" || !Number.isFinite(value)) {
-        return;
-      }
+  dataset.forEach(datum => {
+    const value = datum[key];
 
-      const extent = extents[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return;
+    }
 
-      if (!extent) {
-        extents[key] = [value, value];
-        return;
-      }
+    if (extent == null) {
+      extent = [value, value];
+    }
 
-      if (value < extent[0]) {
-        extent[0] = value;
-      }
+    if (value < extent[0]) {
+      extent[0] = value;
+    }
 
-      if (value > extent[1]) {
-        extent[1] = value;
-      }
-    });
+    if (value > extent[1]) {
+      extent[1] = value;
+    }
   });
 
-  return extents;
+  return extent;
 };
 
 export const getCardColumnByDataKeyMap = (

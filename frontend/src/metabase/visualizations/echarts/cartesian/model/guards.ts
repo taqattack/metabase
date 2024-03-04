@@ -14,7 +14,7 @@ export const isTimeSeriesAxis = (
 export const isNumericAxis = (
   axisModel: XAxisModel,
 ): axisModel is NumericXAxisModel => {
-  return axisModel.axisType === "value" || axisModel.axisType === "log";
+  return axisModel.axisType === "value";
 };
 
 export const isCategoryAxis = (

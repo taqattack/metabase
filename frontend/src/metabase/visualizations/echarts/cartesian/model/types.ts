@@ -96,6 +96,12 @@ export type TimeSeriesInterval = {
   unit: CartesianChartDateTimeAbsoluteUnit;
 };
 
+// Allows to have non-linear axis scaling
+export type NumericAxisScaleTransforms = {
+  toAxisValue: (value: RowValue) => number | null;
+  fromAxisValue: (value: number) => number;
+};
+
 export type BaseXAxisModel = {
   label?: string;
   formatter: AxisFormatter;
@@ -109,14 +115,15 @@ export type CategoryXAxisModel = BaseXAxisModel & {
   axisType: "category";
 };
 
-export type NumericXAxisModel = BaseXAxisModel & {
-  axisType: "value" | "log";
-  extent: Extent;
-  interval: number;
-  intervalsCount: number;
-  ticksMaxInterval?: number;
-  ticksMinInterval?: number;
-};
+export type NumericXAxisModel = BaseXAxisModel &
+  NumericAxisScaleTransforms & {
+    axisType: "value";
+    extent: Extent;
+    interval: number;
+    intervalsCount: number;
+    ticksMaxInterval?: number;
+    isPadded: boolean;
+  };
 
 export type TimeSeriesXAxisModel = BaseXAxisModel & {
   axisType: "time";
