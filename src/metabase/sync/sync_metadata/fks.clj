@@ -51,7 +51,7 @@
   [database :- i/DatabaseInstance
    table    :- i/TableInstance
    fk       :- i/FKMetadataEntry]
-  (when-let [source-field (active-non-fk-field (u/the-id table) (:column-name fk))]
+  (when-let [source-field (active-non-fk-field (u/the-id table) (:fk-column-name fk))]
     (when-let [dest-table (active-table (u/the-id database) (:schema (:dest-table fk)) (:name (:dest-table fk)))]
       (when-let [dest-field (active-field (u/the-id dest-table) (:dest-column-name fk))]
         {:source-field source-field
