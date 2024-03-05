@@ -1,7 +1,6 @@
 (ns metabase.sync.sync-metadata.fks
   "Logic for updating FK properties of Fields from metadata fetched from a physical DB."
   (:require
-   [medley.core :as m]
    [metabase.driver :as driver]
    [metabase.driver.util :as driver.u]
    [metabase.models.field :refer [Field]]
@@ -25,32 +24,29 @@
   (t2/select-one Field
                  :table_id           table-id
                  :%lower.name        (u/lower-case-en field-name)
-                 :active             true
-                 :visibility_type    [:not= "retired"]))
+                 {:where sync-util/syncable-field-clause}))
 
 (defn- active-table [db-id schema-name table-name]
   (t2/select-one Table
                  :db_id           db-id
                  :%lower.name     (u/lower-case-en table-name)
                  :%lower.schema   (some-> schema-name u/lower-case-en)
-                 :active          true
-                 :visibility_type nil))
+                 {:where sync-util/syncable-table-clause}))
 
 (defn- active-non-fk-field [table-id field-name]
-  ;; FIXME: using this function preserves existing behaviour but is a bug!
-  ;; This means that foreign key relationships can never change
   (t2/select-one Field
                  :table_id           table-id
                  :%lower.name        (u/lower-case-en field-name)
                  :fk_target_field_id nil
-                 :active             true
-                 :visibility_type    [:not= "retired"]))
+                 {:where sync-util/syncable-field-clause}))
 
 (mu/defn ^:private fetch-fk-relationship-objects :- [:maybe FKRelationshipObjects]
   "Fetch the Metabase objects (Tables and Fields) that are relevant to a foreign key relationship described by FK."
   [database :- i/DatabaseInstance
    table    :- i/TableInstance
    fk       :- i/FKMetadataEntry]
+  ;; FIXME: using active-non-fk-field preserves existing behaviour but is a bug!
+  ;; This means that foreign key relationships can never change
   (when-let [source-field (active-non-fk-field (u/the-id table) (:fk-column-name fk))]
     (when-let [dest-table (active-table (u/the-id database) (:schema (:dest-table fk)) (:name (:dest-table fk)))]
       (when-let [dest-field (active-field (u/the-id dest-table) (:dest-column-name fk))]
@@ -58,43 +54,32 @@
          :dest-table   dest-table
          :dest-field   dest-field}))))
 
-(mu/defn ^:private mark-fk!
-  [{:keys [dest-table fk-table pk-field fk-field]}]
-  (log/info (u/format-color 'cyan "Marking foreign key from %s %s -> %s %s"
-                            (sync-util/name-for-logging fk-table)
-                            (sync-util/name-for-logging fk-field)
-                            (sync-util/name-for-logging dest-table)
-                            (sync-util/name-for-logging pk-field)))
-  (t2/update! Field (u/the-id fk-field)
+(defn ^:private mark-fk!
+  [{:keys [pk-field-id fk-field-id]}]
+  (t2/update! Field fk-field-id
               {:semantic_type      :type/FK
-               :fk_target_field_id (u/the-id pk-field)}))
+               :fk_target_field_id pk-field-id}))
 
 (mu/defn sync-fks-for-tables!
-  "Sync the foreign keys for specific `tables`. Assumes that all the PK tables are also in `tables`."
+  "Sync the foreign keys for specific `tables`."
   [database :- i/DatabaseInstance
-   tables   :- [:sequential i/TableInstance]]
+   tables] ; `tables` is a reducible collection of Table instances
   (sync-util/with-error-handling (format "Error syncing FKs for %s" (sync-util/name-for-logging database))
     (let [;; TODO: we can use the schema filters prop to narrow down the schemas we need to fetch fks for
           ;; using [[fetch-metadata/fk-metadata]]. For now, we'll fetch all the fks and filter them with the
           ;; tables we have in memory.
           fk-metadata    (fetch-metadata/fk-metadata database)
           table->ident   (juxt :schema :name)
-          ident->table   (m/index-by table->ident tables)
-          maybe-fks      (eduction (map (fn [{:keys [fk-table dest-table fk-column-name dest-column-name]}]
-                                          (when-let [fk-table' (ident->table (table->ident fk-table))]
-                                            (when-let [dest-table' (or
-                                                                    ;; if the dest-table is in the list of tables we
-                                                                    ;; have in memory, just get it from there
-                                                                    (ident->table (table->ident dest-table))
-                                                                    ;; if not, query the DB
-                                                                    (active-table (:id database) (:schema dest-table) (:name dest-table)))]
-                                              (when-let [fk-field (active-non-fk-field (:id fk-table') fk-column-name)]
-                                                (when-let [pk-field (active-field (:id dest-table') dest-column-name)]
-                                                  {:fk-table   fk-table'
-                                                   :dest-table dest-table'
-                                                   :fk-field   fk-field
-                                                   :pk-field   pk-field}))))))
-                                   fk-metadata)]
+          ;; TODO: This keeps table and schema ids in memory. We should fix this.
+          ident->table-id (persistent! (reduce #(assoc! %1 (table->ident %2) (:id %2)) (transient {}) tables))
+          maybe-fks       (eduction (map (fn [{:keys [fk-table dest-table fk-column-name dest-column-name]}]
+                                           (when-let [fk-table-id (ident->table-id (table->ident fk-table))]
+                                             (when-let [dest-table-id (ident->table-id (table->ident dest-table))]
+                                               (when-let [fk-field (active-non-fk-field fk-table-id fk-column-name)]
+                                                 (when-let [pk-field (active-field dest-table-id dest-column-name)]
+                                                   {:fk-field-id fk-field
+                                                    :pk-field-id pk-field}))))))
+                                    fk-metadata)]
       (u/prog1 (reduce (fn [update-info maybe-fk]
                          (some-> maybe-fk mark-fk!)
                          (merge-with + update-info {:total-fks    1
@@ -124,11 +109,15 @@
                         (if-let [{:keys [source-field
                                          dest-table
                                          dest-field]} (fetch-fk-relationship-objects database table fk)]
-                          (do (mark-fk! {:dest-table dest-table
-                                         :fk-table table
-                                         :pk-field dest-field
-                                         :fk-field source-field})
-                              1)
+                          (do
+                            (log/info (u/format-color 'cyan "Marking foreign key from %s %s -> %s %s"
+                                                      (sync-util/name-for-logging table)
+                                                      (sync-util/name-for-logging source-field)
+                                                      (sync-util/name-for-logging dest-table)
+                                                      (sync-util/name-for-logging dest-field)))
+                            (mark-fk! {:pk-field-id (:id dest-field)
+                                       :fk-field-id (:id source-field)})
+                            1)
                           0))
                       fks-to-update)}))))
 
@@ -141,7 +130,7 @@
   (if (driver/database-supports? (driver.u/database->driver database)
                                  :fast-sync-fks
                                  database)
-    (->> (sync-util/db->sync-tables database)
+    (->> (sync-util/reducible-sync-tables database)
          (sync-fks-for-tables! database))
     (reduce (fn [update-info table]
               (let [table-fk-info (sync-fks-for-table! database table)]
@@ -155,4 +144,4 @@
             {:total-fks    0
              :updated-fks  0
              :total-failed 0}
-            (sync-util/db->sync-tables database))))
+            (sync-util/reducible-sync-tables database))))

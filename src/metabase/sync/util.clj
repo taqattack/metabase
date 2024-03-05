@@ -319,10 +319,27 @@
 ;;; |                                          OTHER SYNC UTILITY FUNCTIONS                                          |
 ;;; +----------------------------------------------------------------------------------------------------------------+
 
+(def syncable-table-clause
+  "A clause that can be used to find all the tables that should be sync'd."
+  [:and
+   [:= :active true]
+   [:= :visibility_type nil]])
+
+(def syncable-field-clause
+  "A clause that can be used to find all the fields that should be sync'd."
+  [:and
+   [:= :active true]
+   [:= :visibility_type [:not= "retired"]]])
+
 (defn db->sync-tables
-  "Return all the Tables that should go through the sync processes for `database-or-id`."
+  "Returns all the Tables that have their metadata sync'd `database-or-id`."
   [database-or-id]
-  (t2/select :model/Table, :db_id (u/the-id database-or-id), :active true, :visibility_type nil))
+  (t2/select :model/Table :db_id (u/the-id database-or-id) {:where syncable-table-clause}))
+
+(defn reducible-sync-tables
+  "Returns a reducible collection of all the Tables that have their metadata sync'd `database-or-id`."
+  [database-or-id]
+  (t2/reducible-select :model/Table :db_id (u/the-id database-or-id) {:where syncable-table-clause}))
 
 (defmulti name-for-logging
   "Return an appropriate string for logging an object in sync logging messages. Should be something like
