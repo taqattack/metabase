@@ -44,7 +44,6 @@
       ["metabase/mbql/normalize.cljc:839"]                                          true
       ["metabase/driver/common.clj:223"]                                            true
       ["backend/mbql/src/metabase/mbql/normalize.clj"]                              true
-      ["metabase_enterprise/audit_app/interface.clj:25"]                            true
       ["enterprise/backend/test/metabase_enterprise/serialization/load_test.clj"]   true
       ["target/classes/metabase/server/request/util.clj"]                           true
       ;; Both a FE and a BE path
