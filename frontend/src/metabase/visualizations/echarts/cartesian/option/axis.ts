@@ -243,7 +243,10 @@ export const buildNumericDimensionAxis = (
           min: () => min - axisPadding,
           max: () => max + axisPadding,
         }
-      : {}),
+      : {
+          min: "dataMin",
+          max: "dataMax",
+        }),
     maxInterval: ticksMaxInterval,
   };
 };
