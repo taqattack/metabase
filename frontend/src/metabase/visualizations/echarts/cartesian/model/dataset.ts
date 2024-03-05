@@ -307,6 +307,10 @@ export const applyVisualizationSettingsDataTransformations = (
       fn: getNormalizedDatasetTransform(seriesDataKeys),
     },
     {
+      condition: settings["graph.y_axis.scale"] === "pow",
+      fn: getKeyBasedDatasetTransform(seriesDataKeys, applySquareRootScaling),
+    },
+    {
       condition: isNumericAxis(xAxisModel),
       fn: getKeyBasedDatasetTransform([X_AXIS_DATA_KEY], value => {
         return isNumericAxis(xAxisModel)

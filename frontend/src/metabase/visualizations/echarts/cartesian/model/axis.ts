@@ -680,10 +680,10 @@ const getAxisTransforms = (
         if (!isNumber(value)) {
           return null;
         }
-        return Math.log(Math.abs(value)) * getSign(value);
+        return Math.log10(Math.abs(value)) * getSign(value);
       },
       fromAxisValue: value => {
-        return Math.exp(Math.abs(value)) * getSign(value);
+        return Math.pow(10, Math.abs(value)) * getSign(value);
       },
     };
   }
