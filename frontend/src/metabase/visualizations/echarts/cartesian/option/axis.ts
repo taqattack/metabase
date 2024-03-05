@@ -143,12 +143,10 @@ export const buildDimensionAxis = (
   hasTimelineEvents: boolean,
   renderingContext: RenderingContext,
 ): AxisBaseOption => {
-  const { getColor } = renderingContext;
   const xAxisModel = chartModel.xAxisModel;
 
   if (isNumericAxis(xAxisModel)) {
     return buildNumericDimensionAxis(
-      chartModel,
       xAxisModel,
       settings,
       chartMeasurements,
@@ -158,32 +156,15 @@ export const buildDimensionAxis = (
 
   const { axisType, formatter } = xAxisModel;
 
-  const boundaryGap =
-    axisType === "value" || axisType === "log"
-      ? undefined
-      : ([0.02, 0.02] as [number, number]);
-
-  const nameGap = getAxisNameGap(
-    chartMeasurements.ticksDimensions.xTicksHeight,
-  );
   const valueGetter = getDimensionDisplayValueGetter(chartModel, settings);
   const isTimeSeries = isTimeSeriesAxis(xAxisModel);
 
   return {
-    ...getAxisNameDefaultOption(
+    ...getCommonDimensionAxisOptions(
+      chartMeasurements,
+      settings,
       renderingContext,
-      nameGap,
-      settings["graph.x_axis.labels_enabled"]
-        ? settings["graph.x_axis.title_text"]
-        : undefined,
     ),
-    axisTick: {
-      show: false,
-    },
-    boundaryGap,
-    splitLine: {
-      show: false,
-    },
     type: axisType,
     axisLabel: {
       margin:
@@ -199,12 +180,6 @@ export const buildDimensionAxis = (
           return ` ${formatter(value)} `; // spaces force padding between ticks
         }
         return false;
-      },
-    },
-    axisLine: {
-      show: !!settings["graph.x_axis.axis_enabled"],
-      lineStyle: {
-        color: getColor("border"),
       },
     },
     ...(isTimeSeries
@@ -227,7 +202,6 @@ export const buildDimensionAxis = (
 };
 
 export const buildNumericDimensionAxis = (
-  chartModel: BaseCartesianChartModel,
   xAxisModel: NumericXAxisModel,
   settings: ComputedVisualizationSettings,
   chartMeasurements: ChartMeasurements,
@@ -258,7 +232,7 @@ export const buildNumericDimensionAxis = (
       rotate: getRotateAngle(settings),
       ...getTicksDefaultOption(renderingContext),
       formatter: (rawValue: number) => {
-        if (rawValue < min || rawValue > max) {
+        if (isPadded && (rawValue < min || rawValue > max)) {
           return "";
         }
         return ` ${formatter(fromAxisValue(rawValue))} `;

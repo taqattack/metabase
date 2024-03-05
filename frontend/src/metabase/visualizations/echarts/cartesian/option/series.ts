@@ -123,6 +123,7 @@ export const computeBarWidth = (
   xAxisModel: XAxisModel,
   chartMeasurements: ChartMeasurements,
   barSeriesCount: number,
+  yAxisWithBarSeriesCount: number,
   isStacked: boolean,
 ) => {
   let barWidth: string | number | undefined = undefined;
@@ -137,6 +138,8 @@ export const computeBarWidth = (
     if (!stackedOrSingleSeries) {
       barWidth /= barSeriesCount;
     }
+
+    barWidth /= yAxisWithBarSeriesCount;
   }
 
   if (isCategoryAxis(xAxisModel) && xAxisModel.isHistogram) {
@@ -157,6 +160,7 @@ const buildEChartsBarSeries = (
   settings: ComputedVisualizationSettings,
   yAxisIndex: number,
   barSeriesCount: number,
+  yAxisWithBarSeriesCount: number,
   hasMultipleSeries: boolean,
   renderingContext: RenderingContext,
 ): RegisteredSeriesOption["bar"] => {
@@ -188,6 +192,7 @@ const buildEChartsBarSeries = (
       xAxisModel,
       chartMeasurements,
       barSeriesCount,
+      yAxisWithBarSeriesCount,
       !!stackName,
     ),
     encode: {
@@ -438,6 +443,33 @@ export const buildEChartsSeries = (
     {} as Record<DataKey, SeriesSettings>,
   );
 
+  const seriesYAxisIndexByDataKey = chartModel.seriesModels.reduce(
+    (acc, seriesModel) => {
+      acc[seriesModel.dataKey] = getSeriesYAxisIndex(seriesModel, chartModel);
+      return acc;
+    },
+    {} as Record<DataKey, number>,
+  );
+
+  const barSeriesCountByYAxisIndex = chartModel.seriesModels.reduce(
+    (acc, seriesModel) => {
+      const isBar =
+        seriesSettingsByDataKey[seriesModel.dataKey].display === "bar";
+
+      if (isBar) {
+        const yAxisIndex = seriesYAxisIndexByDataKey[seriesModel.dataKey];
+        acc[yAxisIndex] = (acc[yAxisIndex] ?? 0) + 1;
+      }
+
+      return acc;
+    },
+    {} as Record<number, number>,
+  );
+
+  const yAxisWithBarSeriesCount = Object.keys(
+    barSeriesCountByYAxisIndex,
+  ).length;
+
   const barSeriesCount = Object.values(seriesSettingsByDataKey).filter(
     seriesSettings => seriesSettings.display === "bar",
   ).length;
@@ -447,7 +479,7 @@ export const buildEChartsSeries = (
   const series = chartModel.seriesModels
     .map(seriesModel => {
       const seriesSettings = seriesSettingsByDataKey[seriesModel.dataKey];
-      const yAxisIndex = getSeriesYAxisIndex(seriesModel, chartModel);
+      const yAxisIndex = seriesYAxisIndexByDataKey[seriesModel.dataKey];
 
       switch (seriesSettings.display) {
         case "line":
@@ -471,6 +503,7 @@ export const buildEChartsSeries = (
             settings,
             yAxisIndex,
             barSeriesCount,
+            yAxisWithBarSeriesCount,
             hasMultipleSeries,
             renderingContext,
           );

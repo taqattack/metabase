@@ -37,17 +37,11 @@ import type { TimelineEventsModel } from "../../timeline-events/types";
 import { getTimelineEventsSeries } from "../../timeline-events/option";
 import { buildAxes } from "../../option/axis";
 import { getSharedEChartsOptions } from "../../option";
-import { isTimeSeriesAxis } from "../../model/guards";
 
 type WaterfallSeriesOptions =
   | RegisteredSeriesOption["line"]
   | RegisteredSeriesOption["bar"]
   | RegisteredSeriesOption["candlestick"];
-
-const DEFAULT_BAR_WIDTH = `60%`;
-
-// Ensures bars are not too wide when there are just a few
-const getBarWidthPercent = (barsCount: number) => 1 / (1.4 * barsCount);
 
 const getLabelLayoutFn = (
   dataset: ChartDataset,
@@ -98,6 +92,7 @@ export const buildEChartsWaterfallSeries = (
   const barWidth = computeBarWidth(
     chartModel.xAxisModel,
     chartMeasurements,
+    1,
     1,
     false,
   );

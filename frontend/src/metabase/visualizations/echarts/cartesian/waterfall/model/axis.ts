@@ -8,13 +8,14 @@ import type {
 import type {
   ChartDataset,
   DimensionModel,
+  Extent,
   TimeSeriesXAxisModel,
   WaterfallXAxisModel,
   XAxisModel,
 } from "metabase/visualizations/echarts/cartesian/model/types";
 
 import { getXAxisModel } from "../../model/axis";
-import { isTimeSeriesAxis } from "../../model/guards";
+import { isNumericAxis, isTimeSeriesAxis } from "../../model/guards";
 import { tryGetDate } from "../../utils/timeseries";
 
 const getTotalTimeSeriesXValue = ({
@@ -42,43 +43,57 @@ export const getWaterfallXAxisModel = (
   );
 
   const hasTotal = !!settings["waterfall.show_total"];
-  let totalXValue = hasTotal ? t`Total` : undefined;
+  let totalXValue: RowValue | undefined = hasTotal ? t`Total` : undefined;
+  let extent: Extent | undefined = isNumericAxis(xAxisModel)
+    ? xAxisModel.extent
+    : undefined;
 
   let tickRenderPredicate: XAxisModel["tickRenderPredicate"];
 
-  if (isTimeSeriesAxis(xAxisModel) && hasTotal) {
-    const timeSeriesTotalXValue = getTotalTimeSeriesXValue(xAxisModel);
+  if (hasTotal) {
+    if (isTimeSeriesAxis(xAxisModel)) {
+      const timeSeriesTotalXValue = getTotalTimeSeriesXValue(xAxisModel);
 
-    totalXValue = timeSeriesTotalXValue;
-    tickRenderPredicate = (tickValueRaw: string | number) => {
-      const tickValue = dayjs(tickValueRaw);
-      if (
-        tickValue.isSame(
-          tryGetDate(timeSeriesTotalXValue),
-          xAxisModel.effectiveTickUnit,
-        )
-      ) {
-        return true;
-      }
+      totalXValue = timeSeriesTotalXValue;
+      tickRenderPredicate = (tickValueRaw: string | number) => {
+        const tickValue = dayjs(tickValueRaw);
+        if (
+          tickValue.isSame(
+            tryGetDate(timeSeriesTotalXValue),
+            xAxisModel.effectiveTickUnit,
+          )
+        ) {
+          return true;
+        }
 
-      return xAxisModel.tickRenderPredicate?.(tickValueRaw) ?? true;
-    };
+        return xAxisModel.tickRenderPredicate?.(tickValueRaw) ?? true;
+      };
+    } else if (isNumericAxis(xAxisModel)) {
+      totalXValue = xAxisModel.extent[1] + xAxisModel.interval;
+      extent = [xAxisModel.extent[0], totalXValue];
+    }
   }
 
   const waterfallFormatter = (valueRaw: RowValue) => {
     if (
       typeof totalXValue === "undefined" ||
-      !isTimeSeriesAxis(xAxisModel) ||
+      // !isTimeSeriesAxis(xAxisModel) ||
       typeof valueRaw === "boolean"
     ) {
       return xAxisModel.formatter(valueRaw);
     }
-    const dateValue = dayjs(valueRaw);
 
-    if (dateValue.isSame(totalXValue, xAxisModel.interval.unit)) {
-      return t`Total`;
+    if (isNumericAxis(xAxisModel)) {
+      if (valueRaw === totalXValue) {
+        return t`Total`;
+      }
+    } else if (isTimeSeriesAxis(xAxisModel)) {
+      const dateValue = dayjs(valueRaw);
+
+      if (dateValue.isSame(tryGetDate(totalXValue), xAxisModel.interval.unit)) {
+        return t`Total`;
+      }
     }
-
     return xAxisModel.formatter(valueRaw);
   };
 
@@ -87,5 +102,6 @@ export const getWaterfallXAxisModel = (
     formatter: waterfallFormatter,
     totalXValue,
     tickRenderPredicate,
+    extent,
   };
 };
